@@ -6,7 +6,7 @@ import {
   BadgePercent, FileSpreadsheet, LifeBuoy, MessagesSquare, ScanSearch, Send,
   ShieldAlert, ShieldCheck, Sparkles, Swords, User, Waypoints,
 } from "lucide-react";
-import { api, CLIENT_OPTIONS, type ConvDetail } from "@/lib/api";
+import { api, CLIENT_OPTIONS, type ClientOption, type ConvDetail } from "@/lib/api";
 import { usePolling } from "@/lib/hooks";
 import { Btn, CategoryChip, Chip, Glass, StatusChip, cx, inputCls } from "@/components/ui";
 import { Bubble as SharedBubble } from "@/components/Bubble";
@@ -29,7 +29,15 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [trace, setTrace] = useState<PipelineTrace | null>(null);
+  const [clients, setClients] = useState<ClientOption[]>(CLIENT_OPTIONS);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // справочник клиентов — с бэкенда: движок и интерфейс должны видеть одних и тех же клиентов
+  useEffect(() => {
+    api.clients()
+      .then(({ clients: rows }) => { if (rows.length) setClients(rows); })
+      .catch(() => {/* бэкенд недоступен — остаётся резервный список */});
+  }, []);
 
   // выбор клиента → ищем его открытый диалог
   usePolling(async () => {
@@ -55,7 +63,7 @@ export default function ChatPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending]);
 
-  const client = CLIENT_OPTIONS.find((c) => c.id === clientId)!;
+  const client = clients.find((c) => c.id === clientId) ?? clients[0] ?? CLIENT_OPTIONS[0];
   const locked = detail?.conversation.status === "HANDOFF" || detail?.conversation.status === "RESOLVED";
 
   const send = async (text: string, cid = clientId) => {
@@ -87,7 +95,7 @@ export default function ChatPage() {
       <Glass className="flex flex-col overflow-hidden">
         <div className="border-b border-edge px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-dim">Канал: web-чат</div>
         <div className="flex-1 space-y-1 overflow-y-auto p-2.5">
-          {CLIENT_OPTIONS.map((c) => (
+          {clients.map((c) => (
             <button
               key={c.id}
               onClick={() => { setClientId(c.id); setExtra([]); }}

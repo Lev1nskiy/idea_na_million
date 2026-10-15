@@ -49,14 +49,41 @@ DATABASE_URL=postgresql://postgres:postgres@db:5432/app_db docker compose --prof
 | `/policy` | Policy Admin: скидки/компенсации/SLA/пороги, история версий, живой симулятор |
 | `/metrics` | Метрики ТЗ: TTFR (раздельно I/F и прочих), auto-decision rate по формуле заказчика, injection resistance, инциденты (маскированные, Ст. 4) |
 
-## Подключение реального backend
+## Мост к реальному backend (FastAPI + SQLite)
 
-UI — тонкий клиент: взаимодействие с API изолировано в `src/lib/api.ts`.
-Чтобы подключить настоящий пайплайн (FastAPI + GigaChat из roadmap), достаточно:
+UI — тонкий клиент, поэтому подключение настоящего пайплайна не потребовало изменений интерфейса:
+каждый `src/app/api/**/route.ts` сначала спрашивает backend, а если тот не задан или недоступен —
+отдаёт прежний ответ встроенного демо-движка. Автономность демо при этом сохраняется.
 
-1. Поднять backend, реализующий контракт `POST /api/messages` и остальные маршруты таблицы шага 5.
-2. Выставить `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000` (и CORS на стороне backend).
-3. Встроенный mock-движок при этом остаётся fallback-демо (офлайн-страховка на защите).
+```
+браузер → /api/… (Next-сервер) → CRM_BACKEND_URL/api/site/… (FastAPI)
+                    └── backend не ответил → src/server/store.ts (mock-фоллбек)
+```
+
+1. Поднять backend: `uvicorn app.main:app --port 8030` (папка `ai-native-srm`).
+2. Задать `CRM_BACKEND_URL=http://127.0.0.1:8030` (см. `.env.example`) и перезапустить dev-сервер.
+3. Проверить `/api/health`: `"engine": "backend"` — данные идут из FastAPI, `"mock-fallback"` — сайт на встроенном движке.
+
+Мост серверный, а не браузерный: адрес backend не попадает в клиентский бандл, CORS не требуется,
+а три запроса мимо `src/lib/api.ts` (уведомления, политика, сброс демо) тоже проходят через прокси.
+Перевод контрактов (camelCase, `dlg-0001`, Policy с `work_hours.from/to`, метрики) живёт в backend
+(`app/adapters/site.py`, `app/routers/ui_bridge.py`) — интерфейс не переписывался.
+Список клиентов на странице чата тоже приходит с backend (`/api/clients`), поэтому интерфейс
+и движок видят одних и тех же клиентов; статический `CLIENT_OPTIONS` остался резервом.
+
+### Проверка моста за минуту
+
+```bash
+curl -s localhost:3000/api/health                      # "engine":"backend" — отвечает FastAPI
+curl -s localhost:3000/api/clients                     # 6 клиентов из справочника backend
+curl -s -X POST localhost:3000/api/messages -H 'Content-Type: application/json' \
+  -d '{"client_id":"C-1006","channel":"web","text":"Нужно 10 принтеров LP-220. Какую скидку дадите?"}'
+# → «скидка 8%» считается Policy Matrix backend (тир 5% + лояльность 3%), а не локальным policy.ts
+```
+
+Остановите backend и повторите запросы: `/api/health` вернёт `"engine":"mock-fallback"`,
+а сайт продолжит работать на встроенном демо-движке (41 диалог истории) — демо не зависит
+от того, поднят ли FastAPI.
 
 ## Демо-сценарии (кнопки на странице чата)
 
@@ -79,14 +106,16 @@ UI — тонкий клиент: взаимодействие с API изоли
 ┌ UI (Next.js, App Router) ── тонкий клиент, бизнес-логики нет
 │     /api/*  REST-контракт по таблице из roadmap шага 5
 ├ src/server/engine.ts   оркестратор: perception → understanding → decision → action → learning
-├ src/server/store.ts    in-memory демо-стор + сид 41 диалога (заменяется на PostgreSQL)
+├ src/server/store.ts    in-memory демо-стор + сид (фоллбек, когда backend недоступен)
+├ src/server/backend.ts  прокси в FastAPI: backend первым, mock — страховкой
 ├ src/server/templates.ts детерминированные шаблоны (F, ACK-спор, лимит скидки) — без LLM
 ├ src/lib/policy.ts      calcAllowedDiscount / calcDeliveryCompensation / getManagerSla
 └ src/lib/privacy.ts     mask_pii (Ст. 4): телефоны, email, ФИО, серийники, суммы
 ```
 
-Внешний backend (FastAPI из roadmap) подключается без изменения UI — через переменную
-`NEXT_PUBLIC_API_BASE` (каналы остаются тонкими адаптерами над `POST /api/messages`).
+Backend (FastAPI + SQLite) — источник истины: диалоги, решения, политика, заказы, метрики и
+инциденты считаются там, а сайт показывает их через прокси. Адрес задаётся `CRM_BACKEND_URL`
+(серверная переменная, не `NEXT_PUBLIC_*`): фронтенду не нужны ни CORS, ни знание внутренних ручек.
 
 ## Скрипты
 

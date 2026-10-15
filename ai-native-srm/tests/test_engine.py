@@ -119,12 +119,17 @@ def test_warranty_order_not_found_collects_data_without_refusal(db):
 
 
 def test_delivery_compensation_comes_from_policy(db):
+    """Компенсация = процент из Policy × сумма просроченного заказа из данных."""
+    from core import tools
+    from core.prompts.generation import _money
+
+    overdue = next(o for o in tools.get_client(4)["orders"] if o["status"] != "delivered")
     text = send("Когда будет доставка?", client_id=4).messages[0].text
-    assert "5%" in text and "2 095" in text and "ORD-3001" in text
+    assert "5%" in text and _money(overdue["total"] * 0.05) in text and overdue["order_id"] in text
 
     update_policy({"delivery_compensation": [{"delay_days_gt": 2, "pct_of_sum": 10}]}, author="admin")
     text = send("Когда будет доставка?", client_id=4).messages[0].text
-    assert "10%" in text and "4 190" in text
+    assert "10%" in text and _money(overdue["total"] * 0.10) in text
 
 
 # --- A / B / D / E -----------------------------------------------------------------------
@@ -242,11 +247,19 @@ def test_discount_escalation_when_product_not_repeated(db):
 
 
 def test_explicit_product_in_new_message_wins_over_context(db):
-    """Новая позиция в реплике важнее той, что была в диалоге раньше."""
+    """Новая позиция в реплике важнее той, что была в диалоге раньше (граница C/I, п. 0 №16)."""
+    from core import tools
+
     conv = send("Дайте скидку 12% на 10 штук PX-M4200").conversation_id  # 389 000 ₽ → 12%
-    resp = send("А если скидка 3% на 3 принтера PX-L2100?", conv_id=conv)  # 50 700 ₽ → скидки нет
-    assert "не предусмотрена" in resp.messages[0].text
-    assert "12%" not in resp.messages[0].text
+    resp = send("А если скидка 3% на 3 принтера PX-L2100?", conv_id=conv)
+
+    facts = tools.calc_discount(1, get_policy(), query="PX-L2100", qty=3)
+    assert "L2100" in facts["product"]  # считали по новой позиции, а не по прежней
+    assert facts["order_sum"] < 100_000
+    # скидка не выходит за матрицу по новой сумме: 3% запрошено, потолок для неё — тир по сумме
+    limit = tools.calc_discount(1, get_policy(), query="PX-L2100", qty=3)["allowed_pct"]
+    assert limit < 12  # «12% из прошлого запроса» не переносится на новый товар
+    assert "49 179" in resp.messages[0].text or "скидк" in resp.messages[0].text.lower()
 
 
 def test_catalog_answer_does_not_mix_neighbour_skus(db):

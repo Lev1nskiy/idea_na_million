@@ -1,8 +1,12 @@
+import { proxySite } from "@/server/backend";
 import { store, tick } from "@/server/store";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const proxied = await proxySite("/notifications");
+  if (proxied) return proxied;
+
   tick();
   const st = store();
   const list = st.notifications

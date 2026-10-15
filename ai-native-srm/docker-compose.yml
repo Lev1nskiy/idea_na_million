@@ -10,12 +10,16 @@ services:
     environment:
       DB_URL: sqlite:////data/crm.db
       API_URL: http://api:8000
+      # Сборка сайта коллег: положите её в ./frontend и API отдаст её на том же порту.
+      # Каталога нет → сервис работает как чистое API (без ошибок).
+      FRONTEND_DIR: /app/frontend
     ports:
       - "8000:8000"
     volumes:
       - crm-data:/data          # БД переживает пересборку и рестарт
       - ./data:/app/data        # справочники можно править на хосте (каталог, Устав, база знаний)
       - ./backups:/app/backups  # сюда ложатся снимки scripts/db_backup.py
+      - ./frontend:/app/frontend  # сборка фронтенда (если есть) — сайт и API на одном origin
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).status == 200 else 1)"]
       interval: 30s

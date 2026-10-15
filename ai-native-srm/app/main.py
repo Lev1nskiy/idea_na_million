@@ -17,7 +17,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
-from app.routers import admin, clients, conversations, deals, messages, metrics, notifications, policy
+from app.frontend import mount_spa
+from app.routers import admin, clients, conversations, deals, messages, metrics, notifications, policy, ui_bridge
 from core import rag
 from core.config import get_settings
 from core.llm import get_llm_provider
@@ -79,6 +80,7 @@ for router in (
     notifications.router,
     metrics.router,
     admin.router,
+    ui_bridge.router,  # поверхность для сайта-фронтенда (/api/site/*)
 ):
     app.include_router(router)
 
@@ -93,3 +95,10 @@ def _policy_version() -> int:
     from core.policy import get_policy_version
 
     return get_policy_version()
+
+
+# ВАЖНО: SPA подключается ПОСЛЕДНИМ. Его catch-all маршрут `/{path}` матчит что угодно,
+# и если зарегистрировать его раньше, он перехватит /api/* и /docs (проверено на живом
+# стенде: /api/health отвечал 404). Отдача включается только при заданном FRONTEND_DIR.
+if get_settings().frontend_dir and mount_spa(app, get_settings().frontend_dir):
+    logger.info("Фронтенд отдаётся из %s (SPA на том же origin)", get_settings().frontend_dir)

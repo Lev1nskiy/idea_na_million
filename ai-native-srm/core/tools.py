@@ -317,7 +317,20 @@ def foreign_client_markers(client_id: int) -> set[str]:
         if cid == client_id:
             continue
         name = client["name"]
-        markers.update({name.lower(), name.split()[-1].lower()})
+        markers.add(name.lower())
+        # Название внутри кавычек («ГрандСнаб») — устойчивый маркер юрлица;
+        # фамилия из ФИО — маркер частного лица. Обрубки вроде «ООО» не нужны.
+        quoted = re.findall(r"[«\"']([^»\"']{3,})[»\"']", name)
+        markers.update(q.lower() for q in quoted)
+        if not quoted:
+            markers.update(w.lower() for w in name.split() if len(w) >= 4)
+        # Контактное лицо — персональные данные клиента (Ст. 4): и ФИО целиком, и фамилия.
+        contact = (client.get("contact") or "").strip()
+        if contact:
+            markers.add(contact.lower())
+            surname = contact.split()[-1]
+            if len(surname) >= 5:  # имена не берём: «Анна» — не идентификатор, а менеджер в шапке тоже «Анна»
+                markers.add(surname.lower())
         for key in ("company", "email"):
             if client.get(key):
                 markers.add(client[key].lower())

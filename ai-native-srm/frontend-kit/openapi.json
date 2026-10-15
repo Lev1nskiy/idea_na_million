@@ -1,0 +1,2291 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI-native CRM API",
+    "description": "Диалоговый ИИ-ассистент CRM: автономные решения A–H, Smooth & Hold, Policy Management.",
+    "version": "0.5"
+  },
+  "paths": {
+    "/api/messages": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Post Message",
+        "description": "Принимает сообщение клиента и возвращает готовую часть ответа (ACK/INTERIM/FINAL).",
+        "operationId": "post_message_api_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncomingMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conversations/{conversation_id}/messages": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "List Messages",
+        "description": "Сообщения диалога по возрастанию id — клиент чата и дашборд опрашивают этот эндпоинт.",
+        "operationId": "list_messages_api_conversations__conversation_id__messages_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "id, после которого вернуть сообщения (поллинг)",
+              "default": 0,
+              "title": "After"
+            },
+            "description": "id, после которого вернуть сообщения (поллинг)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageOut"
+                  },
+                  "title": "Response List Messages Api Conversations  Conversation Id  Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/outbox": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Pull Outbox",
+        "description": "Отдаёт недоставленные сообщения канала и помечает их delivered (адаптеры Шага 6).",
+        "operationId": "pull_outbox_api_outbox_get",
+        "parameters": [
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "telegram",
+              "title": "Channel"
+            }
+          },
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OutboxItem"
+                  },
+                  "title": "Response Pull Outbox Api Outbox Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conversations": {
+      "get": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "List Conversations",
+        "description": "Список диалогов для дашборда: карточка-строка с последним сообщением и счётчиком уведомлений.",
+        "operationId": "list_conversations_api_conversations_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ACTIVE | HOLD | HANDOFF | RESOLVED | LOST",
+              "title": "Status"
+            },
+            "description": "ACTIVE | HOLD | HANDOFF | RESOLVED | LOST"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Conversations Api Conversations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conversations/{conversation_id}": {
+      "get": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "Conversation Detail",
+        "description": "Карточка диалога: клиент, сделка, саммари Handoff, решения, уведомления.",
+        "operationId": "conversation_detail_api_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Conversation Detail Api Conversations  Conversation Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conversations/{conversation_id}/takeover": {
+      "post": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "Takeover",
+        "description": "Менеджер берёт диалог: HANDOFF, напоминания прекращаются, клиенту уходит сигнал.",
+        "operationId": "takeover_api_conversations__conversation_id__takeover_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TakeoverRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Takeover Api Conversations  Conversation Id  Takeover Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conversations/{conversation_id}/manager-reply": {
+      "post": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "Reply",
+        "description": "Ответ менеджера: попадает в messages и outbox, ИИ в этом диалоге замолкает.",
+        "operationId": "reply_api_conversations__conversation_id__manager_reply_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagerReplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Reply Api Conversations  Conversation Id  Manager Reply Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conversations/{conversation_id}/resolve": {
+      "post": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "Close Conversation",
+        "description": "Закрывает диалог: уведомления гасятся, Handoff закрывается.",
+        "operationId": "close_conversation_api_conversations__conversation_id__resolve_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Close Conversation Api Conversations  Conversation Id  Resolve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/decisions/{decision_id}/override": {
+      "post": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "Override Decision",
+        "description": "Фиксирует override автономного решения (Ст. 5): кто, почему, когда.",
+        "operationId": "override_decision_api_decisions__decision_id__override_post",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Override Decision Api Decisions  Decision Id  Override Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients": {
+      "get": {
+        "tags": [
+          "clients"
+        ],
+        "summary": "List Clients",
+        "description": "Клиенты для селектора в чате (порядок — по id демо-набора).",
+        "operationId": "list_clients_api_clients_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response List Clients Api Clients Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients/by-telegram/{telegram_id}": {
+      "get": {
+        "tags": [
+          "clients"
+        ],
+        "summary": "Client By Telegram",
+        "description": "Находит клиента по telegram_id: адаптеру нужен только client_id, ничего больше не отдаём.",
+        "operationId": "client_by_telegram_api_clients_by_telegram__telegram_id__get",
+        "parameters": [
+          {
+            "name": "telegram_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Telegram Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Client By Telegram Api Clients By Telegram  Telegram Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients/{client_id}": {
+      "get": {
+        "tags": [
+          "clients"
+        ],
+        "summary": "Client Detail",
+        "description": "Карточка клиента; `telegram_id` — только админ-вызову (бот с валидным токеном).",
+        "operationId": "client_detail_api_clients__client_id__get",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Client Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Client Detail Api Clients  Client Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/deals": {
+      "get": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "List Deals",
+        "description": "Все карточки сделок (опционально по стадии) — для дашборда и метрик воронки.",
+        "operationId": "list_deals_api_deals_get",
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Deals Api Deals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/deals/{deal_id}": {
+      "get": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Deal Detail",
+        "operationId": "deal_detail_api_deals__deal_id__get",
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Deal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Deal Detail Api Deals  Deal Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Update Deal",
+        "description": "Правка карточки менеджером (stage/notes/скидка) — фиксируется событием для метрик.",
+        "operationId": "update_deal_api_deals__deal_id__put",
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Deal Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Deal Api Deals  Deal Id  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/policy": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Read Policy",
+        "description": "Актуальная Policy Matrix (в ответе есть номер версии).",
+        "operationId": "read_policy_api_policy_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Policy"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Write Policy",
+        "description": "Создаёт НОВУЮ версию политики (история не перезаписывается).",
+        "operationId": "write_policy_api_policy_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/policy/history": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Policy History",
+        "description": "История версий (новые сверху) — для страницы админки.",
+        "operationId": "policy_history_api_policy_history_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Policy History Api Policy History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Notifications",
+        "description": "Уведомления для панели менеджера: по умолчанию — активные.",
+        "operationId": "list_notifications_api_notifications_get",
+        "parameters": [
+          {
+            "name": "unread_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unread Only"
+            }
+          },
+          {
+            "name": "active_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Active Only"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "DISPUTE | SECURITY | OVERRIDE_DUE | REMINDER",
+              "title": "Type"
+            },
+            "description": "DISPUTE | SECURITY | OVERRIDE_DUE | REMINDER"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Notifications Api Notifications Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/{notification_id}/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark Read",
+        "operationId": "mark_read_api_notifications__notification_id__read_post",
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Mark Read Api Notifications  Notification Id  Read Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/read-all": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark All Read",
+        "description": "Массовая отметка «прочитано» — кнопка «разобрать всё» на дашборде.",
+        "operationId": "mark_all_read_api_notifications_read_all_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "type": "object",
+                  "title": "Response Mark All Read Api Notifications Read All Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "Metrics",
+        "description": "7 метрик ТЗ + TTFR раздельно + auto-decision rate + override_rate + рекомендации.",
+        "operationId": "metrics_api_metrics_get",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Metrics Api Metrics Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/security/incidents": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "Incidents",
+        "description": "Инциденты prompt injection: только маскированный текст и хэш (Ст. 3, 4).",
+        "operationId": "incidents_api_security_incidents_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Incidents Api Security Incidents Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/decisions": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "Decisions",
+        "description": "Журнал автономных решений: категория, маршрут, версия политики, override (Ст. 5).",
+        "operationId": "decisions_api_decisions_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Decisions Api Decisions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/export": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Export Dump",
+        "description": "Выгружает состояние БД одним JSON. mask=false — только для закрытого контура.",
+        "operationId": "export_dump_api_admin_export_get",
+        "parameters": [
+          {
+            "name": "mask",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "маскировать ПДн (Ст. 4)",
+              "default": true,
+              "title": "Mask"
+            },
+            "description": "маскировать ПДн (Ст. 4)"
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/import": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Import Dump",
+        "description": "Загружает JSON-дамп. Импорт атомарный: ошибка → откат, БД не меняется.",
+        "operationId": "import_dump_api_admin_import_post",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "merge",
+                "replace"
+              ],
+              "type": "string",
+              "default": "merge",
+              "title": "Mode"
+            }
+          },
+          {
+            "name": "policy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Policy"
+            }
+          },
+          {
+            "name": "dry_run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Dry Run"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_dump_api_admin_import_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Import Dump Api Admin Import Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/backup": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Sqlite Backup",
+        "description": "Отдаёт бинарный снимок SQLite — его можно восстановить через scripts/db_backup.py --in.",
+        "operationId": "sqlite_backup_api_admin_backup_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/reference-data": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Reference Data",
+        "description": "Какие справочники можно заменить и что сейчас лежит в data/.",
+        "operationId": "list_reference_data_api_admin_reference_data_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "title": "Response List Reference Data Api Admin Reference Data Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/reference-data/{name}": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Replace Reference Data",
+        "description": "Заменяет справочник (каталог, база клиентов, шаблоны КП, база знаний).\n\nЗапись атомарная (tmp + os.replace): параллельные чтения не увидят полузаписанный файл.\nПосле записи сбрасываются кэши tools/rag — новые данные видны следующему запросу.",
+        "operationId": "replace_reference_data_api_admin_reference_data__name__put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_replace_reference_data_api_admin_reference_data__name__put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Replace Reference Data Api Admin Reference Data  Name  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Health",
+        "description": "Проверка живости для UI, Telegram-бота и деплоя.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_import_dump_api_admin_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_dump_api_admin_import_post"
+      },
+      "Body_replace_reference_data_api_admin_reference_data__name__put": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_replace_reference_data_api_admin_reference_data__name__put"
+      },
+      "BotMessage": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "ACK",
+              "INTERIM",
+              "FINAL",
+              "HOLD"
+            ],
+            "title": "Phase",
+            "default": "FINAL"
+          },
+          "deterministic": {
+            "type": "boolean",
+            "title": "Deterministic",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "BotMessage"
+      },
+      "BotResponse": {
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/BotMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "card_updates": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Card Updates"
+          },
+          "notifications": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Notifications"
+          },
+          "events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "title": "BotResponse"
+      },
+      "DealUpdate": {
+        "properties": {
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "discount_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Pct"
+          }
+        },
+        "type": "object",
+        "title": "DealUpdate"
+      },
+      "DeliveryCompensationRule": {
+        "properties": {
+          "delay_days_gt": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Delay Days Gt"
+          },
+          "pct_of_sum": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Pct Of Sum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "delay_days_gt",
+          "pct_of_sum"
+        ],
+        "title": "DeliveryCompensationRule",
+        "description": "Задержка СТРОГО больше delay_days_gt дней -> pct_of_sum % от суммы."
+      },
+      "DiscountTier": {
+        "properties": {
+          "min_sum": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Sum"
+          },
+          "pct": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Pct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "min_sum",
+          "pct"
+        ],
+        "title": "DiscountTier",
+        "description": "Порог скидки: заказ СВЫШЕ min_sum (строго больше) -> pct %."
+      },
+      "DiscountsPolicy": {
+        "properties": {
+          "max_pct": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Max Pct",
+            "default": 15
+          },
+          "tiers": {
+            "items": {
+              "$ref": "#/components/schemas/DiscountTier"
+            },
+            "type": "array",
+            "title": "Tiers"
+          },
+          "bundle_max_pct": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Bundle Max Pct",
+            "default": 15
+          },
+          "loyal_bonus_pct": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Loyal Bonus Pct",
+            "default": 0
+          },
+          "loyal_statuses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Loyal Statuses"
+          }
+        },
+        "type": "object",
+        "title": "DiscountsPolicy"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IncomingMessage": {
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "client_id": {
+            "type": "integer",
+            "title": "Client Id"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "web",
+              "telegram",
+              "email"
+            ],
+            "title": "Channel",
+            "default": "web"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "ts": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "text"
+        ],
+        "title": "IncomingMessage",
+        "description": "Входящее сообщение клиента из любого канала."
+      },
+      "ManagerReplyRequest": {
+        "properties": {
+          "manager": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Manager",
+            "default": "Менеджер"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ManagerReplyRequest"
+      },
+      "ManagerSla": {
+        "properties": {
+          "response_hours": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Response Hours",
+            "default": 2
+          },
+          "off_hours_response_hours": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Off Hours Response Hours",
+            "default": 12
+          },
+          "work_hours": {
+            "$ref": "#/components/schemas/WorkHours"
+          }
+        },
+        "type": "object",
+        "title": "ManagerSla",
+        "description": "«Честный срок» связи с менеджером (Ст. 6, 8)."
+      },
+      "MessageOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase"
+          },
+          "deterministic": {
+            "type": "boolean",
+            "title": "Deterministic",
+            "default": false
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "ts": {
+            "type": "string",
+            "title": "Ts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "text",
+          "ts"
+        ],
+        "title": "MessageOut",
+        "description": "Сообщение для поллинга; текст отдаётся только здесь и только по этому диалогу (Ст. 4)."
+      },
+      "OutboxItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          },
+          "conversation_id": {
+            "type": "integer",
+            "title": "Conversation Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase"
+          },
+          "ts": {
+            "type": "string",
+            "title": "Ts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "channel",
+          "conversation_id",
+          "text",
+          "ts"
+        ],
+        "title": "OutboxItem"
+      },
+      "OverrideRequest": {
+        "properties": {
+          "manager": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Manager",
+            "default": "Менеджер"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "OverrideRequest"
+      },
+      "Policy": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 0
+          },
+          "discounts": {
+            "$ref": "#/components/schemas/DiscountsPolicy"
+          },
+          "warranty": {
+            "$ref": "#/components/schemas/WarrantyPolicy"
+          },
+          "delivery_compensation": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryCompensationRule"
+            },
+            "type": "array",
+            "title": "Delivery Compensation"
+          },
+          "remedy_options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Remedy Options"
+          },
+          "manager_sla": {
+            "$ref": "#/components/schemas/ManagerSla"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/Thresholds"
+          }
+        },
+        "type": "object",
+        "title": "Policy",
+        "description": "Policy Matrix: версионируемый набор бизнес-правил."
+      },
+      "PolicyUpdateRequest": {
+        "properties": {
+          "author": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Author",
+            "default": "admin"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Note",
+            "default": ""
+          },
+          "patch": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Patch",
+            "description": "например: {\"discounts\": {\"max_pct\": 10}}"
+          }
+        },
+        "type": "object",
+        "title": "PolicyUpdateRequest",
+        "description": "Частичное обновление: deep merge поверх текущей версии (например, только max_pct)."
+      },
+      "TakeoverRequest": {
+        "properties": {
+          "manager": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Manager",
+            "default": "Менеджер"
+          }
+        },
+        "type": "object",
+        "title": "TakeoverRequest"
+      },
+      "Thresholds": {
+        "properties": {
+          "min_confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Min Confidence",
+            "default": 0.7
+          },
+          "discount_push_limit": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Discount Push Limit",
+            "default": 2
+          },
+          "negative_sentiment": {
+            "type": "number",
+            "maximum": 0.0,
+            "minimum": -1.0,
+            "title": "Negative Sentiment",
+            "default": -0.5
+          },
+          "hold_ping_minutes": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Hold Ping Minutes",
+            "default": 10
+          },
+          "reminder_minutes": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Reminder Minutes",
+            "default": 15
+          }
+        },
+        "type": "object",
+        "title": "Thresholds"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WarrantyPolicy": {
+        "properties": {
+          "replace_hours": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Replace Hours",
+            "default": 24
+          },
+          "requires_confirmed_order": {
+            "type": "boolean",
+            "title": "Requires Confirmed Order",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "WarrantyPolicy"
+      },
+      "WorkHours": {
+        "properties": {
+          "start_hour": {
+            "type": "integer",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Start Hour",
+            "default": 9
+          },
+          "end_hour": {
+            "type": "integer",
+            "maximum": 24.0,
+            "minimum": 1.0,
+            "title": "End Hour",
+            "default": 18
+          },
+          "days": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "utc_offset_hours": {
+            "type": "integer",
+            "title": "Utc Offset Hours",
+            "default": 3
+          }
+        },
+        "type": "object",
+        "title": "WorkHours"
+      }
+    }
+  }
+}

@@ -2,24 +2,30 @@
   "clients": [
     {
       "client_id": 1,
-      "name": "Алексей Смирнов",
-      "phone": "+7 (900) 111-22-01",
-      "email": "a.smirnov@example.com",
-      "company": null,
+      "site_id": "C-1005",
+      "name": "ООО «Альфа Принт»",
+      "contact": "Дмитрий Глаголев",
+      "segment": "new",
       "status": "new",
+      "phone": "+7 921 555-19-40",
+      "email": "d.glagolev@alfaprint.ru",
+      "company": "ООО «Альфа Принт»",
       "telegram_id": null,
-      "internal_notes": "",
+      "internal_notes": "новый лид, истории заказов нет — кейс «гарантия без заказа»: собираем данные, не отказываем",
       "orders": []
     },
     {
       "client_id": 2,
-      "name": "Мария Козлова",
-      "phone": "+7 (900) 111-22-02",
-      "email": "m.kozlova@example.com",
-      "company": "ИП Козлова",
-      "status": "loyal",
+      "site_id": "C-1001",
+      "name": "ООО «ГрандСнаб»",
+      "contact": "Ирина Лебедева",
+      "segment": "std",
+      "status": "regular",
+      "phone": "+7 921 334-88-12",
+      "email": "lebedeva@grandsnab.ru",
+      "company": "ООО «ГрандСнаб»",
       "telegram_id": null,
-      "internal_notes": "Постоянный клиент, обращается за расходниками.",
+      "internal_notes": "закупает расходники ежеквартально",
       "orders": [
         {
           "order_id": "ORD-1001",
@@ -28,96 +34,260 @@
           "delay_days": 0,
           "total": 74700,
           "items": [
-            { "sku": "PX-L3300D", "qty": 3, "price": 24900, "serials": ["SN-PXL33-A100211", "SN-PXL33-A100212", "SN-PXL33-A100213"] }
+            {
+              "sku": "PX-L3300D",
+              "qty": 3,
+              "price": 24900,
+              "serials": [
+                "SN-PXL33-A100211",
+                "SN-PXL33-A100212",
+                "SN-PXL33-A100213"
+              ]
+            }
+          ]
+        },
+        {
+          "order_id": "ЗК-1101",
+          "date": "2025-11-03",
+          "status": "delivered",
+          "delay_days": 0,
+          "total": 28900,
+          "items": [
+            {
+              "sku": "MF-401A",
+              "qty": 1,
+              "price": 28900,
+              "serials": [
+                "SN-88412"
+              ]
+            }
+          ]
+        },
+        {
+          "order_id": "ЗК-1188",
+          "date": "2026-01-20",
+          "status": "delivered",
+          "delay_days": 0,
+          "total": 16800,
+          "items": [
+            {
+              "sku": "CRG-725",
+              "qty": 4,
+              "price": 4200,
+              "serials": []
+            }
           ]
         }
       ]
     },
     {
       "client_id": 3,
-      "name": "Дмитрий Орлов",
-      "phone": "+7 (900) 111-22-03",
-      "email": "d.orlov@technooffice.example.com",
-      "company": "ООО «ТехноОфис»",
+      "site_id": "C-1003",
+      "name": "АО «НордБанк»",
+      "contact": "Марина Северова",
+      "segment": "corp",
       "status": "corporate",
+      "phone": "+7 495 777-03-21",
+      "email": "m.severova@nordbank.ru",
+      "company": "АО «НордБанк»",
       "telegram_id": null,
-      "internal_notes": "КОНФИДЕНЦИАЛЬНО: квартальный бюджет закупок 1 500 000 ₽, ведёт параллельные переговоры с конкурентом.",
-      "budget": 1500000,
+      "internal_notes": "крупный корпоративный клиент, чувствительные бюджеты (Ст. 4)",
       "orders": [
         {
           "order_id": "ORD-2001",
-          "date": "2026-08-12",
+          "date": "2026-08-14",
           "status": "delivered",
           "delay_days": 0,
           "total": 149800,
           "items": [
-            { "sku": "PX-M4800C", "qty": 2, "price": 74900, "serials": ["SN-PXM48-C200101", "SN-PXM48-C200102"] }
+            {
+              "sku": "PX-M4800C",
+              "qty": 2,
+              "price": 74900,
+              "serials": [
+                "SN-PXM48-C200101",
+                "SN-PXM48-C200102"
+              ]
+            }
+          ]
+        },
+        {
+          "order_id": "ЗК-1330",
+          "date": "2026-01-15",
+          "status": "delivered",
+          "delay_days": 0,
+          "total": 264000,
+          "items": [
+            {
+              "sku": "MF-770",
+              "qty": 1,
+              "price": 210000,
+              "serials": []
+            },
+            {
+              "sku": "FIN-500",
+              "qty": 1,
+              "price": 54000,
+              "serials": []
+            }
+          ]
+        },
+        {
+          "order_id": "ЗК-1402",
+          "date": "2026-01-15",
+          "status": "delivered",
+          "delay_days": 0,
+          "total": 36000,
+          "items": [
+            {
+              "sku": "SRV-PRO",
+              "qty": 1,
+              "price": 36000,
+              "serials": []
+            }
           ]
         }
       ]
     },
     {
       "client_id": 4,
-      "name": "Елена Попова",
-      "phone": "+7 (900) 111-22-04",
-      "email": "e.popova@example.com",
+      "site_id": "C-1004",
+      "name": "ИП Соколова А. В.",
+      "contact": "Анна Соколова",
+      "segment": "std",
+      "status": "regular",
+      "phone": "+7 911 208-71-55",
+      "email": "sokolova.ip@mail.ru",
       "company": null,
-      "status": "new",
       "telegram_id": null,
-      "internal_notes": "",
+      "internal_notes": "доставка заказа просрочена на 3 дня — кейс компенсации (Ст. 5, H)",
       "orders": [
         {
           "order_id": "ORD-3001",
-          "date": "2026-10-05",
-          "status": "in_transit",
-          "delay_days": 3,
+          "date": "2026-07-02",
+          "status": "delivered",
+          "delay_days": 0,
           "total": 41900,
           "items": [
-            { "sku": "PX-C5200", "qty": 1, "price": 41900, "serials": [] }
+            {
+              "sku": "PX-C5200",
+              "qty": 1,
+              "price": 41900,
+              "serials": []
+            }
+          ]
+        },
+        {
+          "order_id": "ЗК-2044",
+          "date": "2026-06-22",
+          "status": "overdue",
+          "delay_days": 3,
+          "total": 29000,
+          "items": [
+            {
+              "sku": "LP-220",
+              "qty": 2,
+              "price": 14500,
+              "serials": []
+            }
           ]
         }
       ]
     },
     {
       "client_id": 5,
-      "name": "Игорь Васильев",
-      "phone": "+7 (900) 111-22-05",
-      "email": "i.vasilyev@example.com",
-      "company": "ООО «Альфа-Принт»",
-      "status": "vip",
+      "site_id": "C-1006",
+      "name": "ООО «Меридиан Логистика»",
+      "contact": "Ольга Ратнер",
+      "segment": "loyal",
+      "status": "loyal",
+      "phone": "+7 812 318-94-07",
+      "email": "oratner@meridianlog.ru",
+      "company": "ООО «Меридиан Логистика»",
       "telegram_id": null,
-      "internal_notes": "VIP, крупные заказы.",
+      "internal_notes": "постоянный клиент, бюджет на оснащение до 450 000 ₽",
       "orders": [
         {
           "order_id": "ORD-4001",
-          "date": "2026-07-30",
+          "date": "2026-05-30",
           "status": "delivered",
           "delay_days": 0,
           "total": 259800,
           "items": [
-            { "sku": "PX-M6500", "qty": 2, "price": 129900, "serials": ["SN-PXM65-V400101", "SN-PXM65-V400102"] }
+            {
+              "sku": "PX-M6500",
+              "qty": 2,
+              "price": 129900,
+              "serials": [
+                "SN-PXM65-V400101",
+                "SN-PXM65-V400102"
+              ]
+            }
+          ]
+        },
+        {
+          "order_id": "ЗК-1518",
+          "date": "2025-09-30",
+          "status": "delivered",
+          "delay_days": 0,
+          "total": 137450,
+          "items": [
+            {
+              "sku": "MF-401A",
+              "qty": 5,
+              "price": 28900,
+              "serials": [
+                "SN-90113",
+                "SN-90114"
+              ]
+            }
           ]
         }
       ]
     },
     {
       "client_id": 6,
-      "name": "Ольга Новикова",
-      "phone": "+7 (900) 111-22-06",
-      "email": "o.novikova@example.com",
-      "company": null,
-      "status": "new",
+      "site_id": "C-1002",
+      "name": "ООО «Вектор Трейд»",
+      "contact": "Павел Сорокин",
+      "segment": "std",
+      "status": "regular",
+      "phone": "+7 812 600-45-90",
+      "email": "p.sorokin@vectortrade.ru",
+      "company": "ООО «Вектор Трейд»",
       "telegram_id": null,
-      "internal_notes": "",
+      "internal_notes": "закупает бумагу и расходники; для гарантийного кейса «заказ не найден» подходит любой неизвестный серийник",
       "orders": [
         {
           "order_id": "ORD-5001",
-          "date": "2026-10-01",
+          "date": "2026-09-05",
           "status": "delivered",
           "delay_days": 0,
           "total": 38900,
           "items": [
-            { "sku": "PX-M4200", "qty": 1, "price": 38900, "serials": ["SN-PXM42-N500101"] }
+            {
+              "sku": "PX-M4200",
+              "qty": 1,
+              "price": 38900,
+              "serials": [
+                "SN-PXM42-N500101"
+              ]
+            }
+          ]
+        },
+        {
+          "order_id": "ЗК-1206",
+          "date": "2026-02-11",
+          "status": "delivered",
+          "delay_days": 0,
+          "total": 18500,
+          "items": [
+            {
+              "sku": "PAP-A4",
+              "qty": 10,
+              "price": 1850,
+              "serials": []
+            }
           ]
         }
       ]

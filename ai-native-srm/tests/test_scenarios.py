@@ -12,6 +12,12 @@ from tests.helpers import NoLLM, ScriptedJSON, ScriptedText, ai_messages, conv, 
 DISPUTE = "Вы обманули с ценой, верните деньги, иначе в суд!"
 
 
+def _sla_numbers() -> set[str]:
+    """Числа-сроки, разрешённые в ответах клиенту: они приходят из актуальной Policy."""
+    sla = get_policy().manager_sla
+    return {str(sla.response_hours), str(sla.off_hours_response_hours)}
+
+
 def _start_dispute(client_id: int = 1) -> int:
     return send(DISPUTE, client_id=client_id, llm=NoLLM()).conversation_id
 
@@ -22,7 +28,8 @@ def test_dispute_instant_ack_hold_notification_and_handoff(db):
     cid = resp.conversation_id
     ack = ai_messages(cid)[0]
     assert ack.phase == "ACK" and ack.deterministic and ack.latency_ms < 100
-    assert re.search(r"в течение (2|12) часов", ack.text)  # честный срок из Policy
+    sla = get_policy().manager_sla
+    assert re.search(rf"в течение ({sla.response_hours}|{sla.off_hours_response_hours}) час", ack.text)
     assert "замена, скидка или бонус" in ack.text and "примет менеджер" in ack.text  # remedy — ориентир
 
     assert conv(cid).status == "HOLD" and conv(cid).category == "I"
@@ -37,7 +44,11 @@ def test_dispute_instant_ack_hold_notification_and_handoff(db):
 
 def test_ack_follows_policy_sla_day_and_night_and_passes_v6(db):
     policy = get_policy()
-    for moment, hours in ((datetime(2026, 10, 15, 9, 0), "2"), (datetime(2026, 10, 15, 20, 0), "12")):
+    sla = policy.manager_sla
+    for moment, hours in (
+        (datetime(2026, 10, 15, 9, 0), str(sla.response_hours)),
+        (datetime(2026, 10, 15, 20, 0), str(sla.off_hours_response_hours)),
+    ):
         text = smooth_hold.ack(policy, moment)
         phrase = templates.sla_phrase(get_manager_sla(policy, moment))
         assert phrase in text and f"{hours} час" in text
@@ -72,7 +83,8 @@ def test_reminders_duplicate_until_takeover_without_new_rows(db):
 
     pings = [x for x in ai_messages(cid) if x.phase == "HOLD"]
     assert len(pings) == 2 and "Я на связи" in pings[0].text
-    assert re.search(r"в течение (2|12) часов", pings[0].text)
+    sla = get_policy().manager_sla
+    assert re.search(rf"в течение ({sla.response_hours}|{sla.off_hours_response_hours}) час", pings[0].text)
 
 
 def test_takeover_stops_reminders_and_silences_ai(db):
@@ -128,7 +140,7 @@ def test_followup_in_hold_gets_smooth_reply_and_refreshes_summary(db):
     reply = resp.messages[0]
     assert reply.phase == "HOLD"
     assert validate_output(
-        reply.text, whitelist={"2", "12"}, policy=get_policy(),
+        reply.text, whitelist=_sla_numbers(), policy=get_policy(),
         sla_phrases=[templates.sla_phrase(get_manager_sla(get_policy()))], smooth=True,
     ) == []
     digest = rows(m.Handoff, conversation_id=cid)[0].summary_json["history_digest"]
@@ -160,7 +172,7 @@ def test_smooth_reply_accepts_good_llm_text(db):
 def test_smooth_reply_rejects_missing_sla_and_remedy_commitment(db):
     policy = get_policy()
     phrase = templates.sla_phrase(get_manager_sla(policy))
-    v = lambda text: {x.detail for x in validate_output(text, whitelist={"2", "12"}, sla_phrases=[phrase], smooth=True)}  # noqa: E731
+    v = lambda text: {x.detail for x in validate_output(text, whitelist=_sla_numbers(), sla_phrases=[phrase], smooth=True)}  # noqa: E731
     assert "no_empathy" in v(f"Передал. {phrase}")
     assert "no_honest_sla" in v("Понимаю, менеджер скоро свяжется.")
     assert "remedy_commitment" in v(f"Понимаю. {phrase} Мы предоставим вам скидку.")

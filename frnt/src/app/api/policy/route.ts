@@ -1,9 +1,13 @@
+import { proxySite } from "@/server/backend";
 import { logEvent, store } from "@/server/store";
 import type { Policy } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const proxied = await proxySite("/policy");
+  if (proxied) return proxied;
+
   const st = store();
   return Response.json({ policy: st.policy });
 }
@@ -21,7 +25,11 @@ function summarize(prev: Policy, next: Omit<Policy, "version" | "author" | "upda
 
 /** Обновление создаёт новую версию; вступает в силу немедленно (без кэша, читается на каждый запрос). */
 export async function PUT(req: Request) {
-  const body = (await req.json()) as { author?: string } & Omit<Policy, "version" | "author" | "updatedAt">;
+  const raw = await req.text();
+  const proxied = await proxySite("/policy", { method: "PUT", body: raw });
+  if (proxied) return proxied;
+
+  const body = JSON.parse(raw || "{}") as { author?: string } & Omit<Policy, "version" | "author" | "updatedAt">;
   const st = store();
   const summary = summarize(st.policy, body);
   const next: Policy = {

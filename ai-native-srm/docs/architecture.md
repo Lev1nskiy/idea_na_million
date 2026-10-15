@@ -171,6 +171,9 @@ docker compose run --rm backup            # снимок crm.db с ротаци�
   `sqlite3.Connection.backup()`), расписание — `deploy/cron.example`.
 * Секреты — только через `.env` (шаблон `.env.example`), в образ не попадают (`.dockerignore`).
 * Healthcheck API `/api/health`; ui и bot стартуют после `service_healthy`.
+* Монтирование фронтенда (если он есть): `./frontend` → `/app/frontend`, переменная `FRONTEND_DIR`.
+  Для этого в `app/frontend.py` есть `mount_spa()`: SPA отдаётся с того же origin, что и API;
+  catch-all маршрут регистрируется ПОСЛЕДНИМ (иначе он перехватывает `/api/*` — проверено тестом).
 
 Проверка без Docker (в песочнице разработки Docker недоступен):
 

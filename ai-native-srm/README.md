@@ -39,6 +39,17 @@ python scripts\bind_telegram.py --list      # кто из клиентов пр�
 Бот — тонкий адаптер: он только доставляет сообщения в `/api/messages` и показывает ответы
 из `/api/outbox`. Вся логика остаётся в `core/`, поэтому бот не «знает» ни про скидки, ни про политику.
 
+### Подключение внешнего фронтенда (сайт на React/Vue/статике)
+
+```powershell
+# сайт собран в dist/ — API отдаст его на том же origin (один URL, без CORS)
+Copy-Item -Recurse "C:\путь\к\сайту\dist" frontend
+# .env: FRONTEND_DIR=./frontend
+python -m uvicorn app.main:app --port 8000     # сайт на /, API на /api, Swagger на /docs
+```
+
+Контракт и готовый клиент — `docs/frontend_integration.md` и `frontend-kit/`.
+
 ### Docker
 
 ```powershell
@@ -74,6 +85,7 @@ ui/         Streamlit-стенд: чат клиента, дашборд мене
 scripts/    seed_demo, export_state, import_state, db_backup, bind_telegram, chat_cli
 data/       каталог, клиенты и заказы, шаблоны КП, база знаний, Устав, policy_seed
 docs/       architecture.md, llm_choice.md, pitch.md, api.md, data_transfer.md
+frontend-kit/ openapi.json + api-client.ts (TS) для подключения внешнего сайта
 ```
 
 Зависимости идут только «вниз»: `ui → app → core → data`. Ядро ничего не знает про
