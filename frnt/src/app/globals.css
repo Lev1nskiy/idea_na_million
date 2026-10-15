@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #06090e;
+  --color-panel: #0c121a;
+  --color-panel2: #101824;
+  --color-edge: rgba(148, 163, 184, 0.13);
+  --color-acc: #7c6cff;
+  --color-acc2: #4cc6ff;
+  --color-mint: #3ce9b4;
+  --color-danger: #ff4d5e;
+  --color-amber: #ffb020;
+  --color-txt: #e9edf5;
+  --color-dim: #8a93a6;
+  --font-display: var(--font-unbounded), system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jbmono), ui-monospace, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-txt);
+  font-family: var(--font-body);
+  background-image:
+    radial-gradient(1100px 500px at 85% -10%, rgba(124, 108, 255, 0.14), transparent 60%),
+    radial-gradient(800px 420px at -10% 110%, rgba(76, 198, 255, 0.09), transparent 60%),
+    radial-gradient(600px 300px at 50% 0%, rgba(60, 233, 180, 0.05), transparent 60%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(124, 108, 255, 0.45);
+  color: #fff;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 108, 255, 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(124, 108, 255, 0.3);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* --- сетка-фон --- */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 75%);
+}
+
+/* --- стеклянная панель --- */
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--color-edge);
+  border-radius: 18px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.65);
+}
+
+.glass-hover {
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-hover:hover {
+  border-color: rgba(124, 108, 255, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 22px 50px -24px rgba(124, 108, 255, 0.35);
+}
+
+/* градиентная рамка сверху */
+.edge-glow {
+  position: relative;
+}
+.edge-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(124, 108, 255, 0.55), transparent 35%, transparent 70%, rgba(76, 198, 255, 0.35));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* --- HOLD-пульс --- */
+@keyframes holdpulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 77, 94, 0.5); }
+  55% { box-shadow: 0 0 0 7px rgba(255, 77, 94, 0); }
+}
+.hold-pulse {
+  animation: holdpulse 1.8s ease-in-out infinite;
+}
+
+@keyframes flow {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.flowline {
+  background: linear-gradient(90deg, transparent, rgba(124, 108, 255, 0.9), rgba(76, 198, 255, 0.8), transparent);
+  background-size: 200% 100%;
+  animation: flow 2.6s linear infinite;
+}
+
+@keyframes blinkdot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.blink {
+  animation: blinkdot 1.1s ease-in-out infinite;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise {
+  animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* градиентный текст */
+.grad-text {
+  background: linear-gradient(92deg, #e9edf5 10%, #a99dff 45%, #4cc6ff 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* числовые поля — скрыть стрелки */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

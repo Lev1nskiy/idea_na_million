@@ -1,0 +1,35 @@
+name: synapse-ai-crm
+
+# docker compose up --build  →  http://localhost:3000
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # опционально: демо-движок работает и без Postgres
+      DATABASE_URL: ${DATABASE_URL:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # production-профиль с персистентностью: docker compose --profile db up --build
+  db:
+    image: postgres:16-alpine
+    profiles: ["db"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
