@@ -1,0 +1,33 @@
+# Что не нужно тащить в образ: кэши, локальные БД, секреты, бэкапы, инструменты разработки.
+.git
+.gitignore
+.github
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Локальные данные и артефакты
+*.db
+*.db-wal
+*.db-shm
+backups/
+delivery/
+*.bundle
+*.diff
+*.patch
+
+# Секреты и окружение
+.env
+.env.*
+!.env.example
+
+# ОС и редакторы
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.log

@@ -1,0 +1,72 @@
+# AI-native CRM: API + UI + Telegram-бот (Шаг 6).
+# Запуск:  cp .env.example .env && docker compose up --build
+# С ботом: docker compose --profile bot up --build   (нужен TG_BOT_TOKEN в .env)
+services:
+  api:
+    build: .
+    image: ai-native-crm:latest
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+    env_file: .env
+    environment:
+      DB_URL: sqlite:////data/crm.db
+      API_URL: http://api:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - crm-data:/data          # БД переживает пересборку и рестарт
+      - ./data:/app/data        # справочники можно править на хосте (каталог, Устав, база знаний)
+      - ./backups:/app/backups  # сюда ложатся снимки scripts/db_backup.py
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  ui:
+    image: ai-native-crm:latest
+    depends_on:
+      api:
+        condition: service_healthy
+    command: python -m streamlit run ui/Home.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true --browser.gatherUsageStats=false
+    env_file: .env
+    environment:
+      # UI обращается к API по внутренней сети compose (браузеру этот адрес не нужен)
+      API_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  bot:
+    image: ai-native-crm:latest
+    profiles: ["bot"]              # без TG_BOT_TOKEN в .env compose работает и без бота
+    depends_on:
+      api:
+        condition: service_healthy
+    command: python -m channels.telegram_bot
+    env_file: .env
+    environment:
+      API_URL: http://api:8000
+      UI_URL: http://localhost:8501   # ссылка в уведомлениях менеджеру (наружный адрес)
+    restart: unless-stopped
+
+  # Регулярные снимки БД: `docker compose run --rm backup` или cron на хосте.
+  backup:
+    image: ai-native-crm:latest
+    profiles: ["ops"]
+    depends_on:
+      api:
+        condition: service_healthy
+    command: python scripts/db_backup.py --out backups/crm.db --rotate 7 --stamp
+    env_file: .env
+    environment:
+      DB_URL: sqlite:////data/crm.db
+    volumes:
+      - crm-data:/data
+      - ./backups:/app/backups
+
+volumes:
+  crm-data:
