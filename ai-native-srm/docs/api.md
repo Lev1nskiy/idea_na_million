@@ -30,7 +30,8 @@ streamlit run ui/Home.py --server.port 8501            # UI (страницы 1�
 | POST | `/api/conversations/{id}/resolve` | закрыть диалог |
 | POST | `/api/decisions/{id}/override` | override решения (кто, почему, когда) |
 | GET | `/api/decisions` | журнал решений (категория, маршрут, версия политики) |
-| GET | `/api/clients`, `/api/clients/{id}` | выбор клиента в UI (без телефонов/почты, Ст. 4) |
+| GET | `/api/clients`, `/api/clients/{id}` | выбор клиента в UI (без телефонов/почты, Ст. 4); `telegram_id` — только с `X-Admin-Token` |
+| GET | `/api/clients/by-telegram/{telegram_id}` | резолв клиента для Telegram-бота: `{client_id}` или 404 (ПДн не отдаются) |
 | GET | `/api/deals`, `/api/deals/{id}`, PUT `/api/deals/{id}` | карточки сделок |
 | GET | `/api/policy`, PUT `/api/policy`, GET `/api/policy/history` | Policy Management (каждая правка — новая версия) |
 | GET | `/api/notifications`, POST `/api/notifications/{id}/read`, POST `/api/notifications/read-all` | уведомления менеджеру |
