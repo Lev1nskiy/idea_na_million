@@ -12,6 +12,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000        # API + /docs
 streamlit run ui/Home.py --server.port 8501            # UI (страницы 1–4 в меню слева)
 ```
 
+Собранный фронтенд можно отдать тем же приложением: задайте `FRONTEND_DIR` (каталог со `index.html`) —
+сайт будет доступен на `/`, API на `/api`, Swagger на `/docs`. Подробности и готовый TS-клиент:
+`docs/frontend_integration.md`, `frontend-kit/`.
+
 `ADMIN_TOKEN` в `.env` включает админ-ручки переноса данных; он же нужен UI
 (`ADMIN_TOKEN=demo-token streamlit run ui/Home.py`), иначе раздел «Перенос данных» покажет подсказку.
 
