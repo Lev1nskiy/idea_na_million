@@ -20,6 +20,10 @@ pycache/
 .coverage
 *.db
 
+# снимки БД (cron/скрипт): папка есть в репозитории, содержимое — нет
+backups/*
+!backups/.gitkeep
+
 node_modules/
 .pnpm-store/
 npm-debug.log*

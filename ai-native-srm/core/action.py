@@ -14,7 +14,6 @@ from typing import Any
 from core import rag, templates, tools
 from core.guardrails import numbers_in, validate_output
 from core.llm import LLMError, LLMProvider
-from core.policy import get_manager_sla
 from core.prompts.generation import build_generation_prompt, render_template
 from core.prompts.system import build_system_prompt
 from core.schemas import (

@@ -226,3 +226,64 @@ def test_clients_endpoint_hides_contacts(api):
     rows = api.get("/api/clients").json()
     assert len(rows) == 6
     assert set(rows[0]) == {"id", "name", "status", "company"}  # без телефонов/почты (Ст. 4)
+
+
+# --- Привязка Telegram (Шаг 6) --------------------------------------------------------------
+def _first_binding() -> tuple[int, str]:
+    """Клиенты из справочника + привязка Telegram (в справочнике telegram_id пустые)."""
+    from scripts.bind_telegram import bind
+    from scripts.seed_demo import seed
+
+    seed()  # идемпотентно: клиенты + политика
+    bind(4, "555000111")
+    return 4, "555000111"
+
+
+def test_lookup_client_by_telegram_returns_only_client_id(api):
+    client_id, telegram_id = _first_binding()
+    resp = api.get(f"/api/clients/by-telegram/{telegram_id}")
+
+    assert resp.status_code == 200 and resp.json() == {"client_id": client_id}
+    assert api.get("/api/clients/by-telegram/000000").status_code == 404
+
+
+def test_client_detail_hides_telegram_id_without_admin_token(api, monkeypatch):
+    client_id, telegram_id = _first_binding()
+
+    public = api.get(f"/api/clients/{client_id}").json()
+    assert "telegram_id" not in public  # ПДн не отдаём открыто (Ст. 4)
+
+    monkeypatch.setenv("ADMIN_TOKEN", "test-token")
+    admin = api.get(f"/api/clients/{client_id}", headers={"X-Admin-Token": "test-token"}).json()
+    assert admin["telegram_id"] == telegram_id
+
+    wrong = api.get(f"/api/clients/{client_id}", headers={"X-Admin-Token": "wrong"}).json()
+    assert "telegram_id" not in wrong
+
+
+def test_bind_script_lists_and_unbinds(db, capsys):
+    from scripts.bind_telegram import bind, bindings
+
+    _first_binding()
+    assert [row for row in bindings() if row["telegram_id"] == "555000111"]
+
+    message = bind(4, None)
+    assert "привязка снята" in message
+    assert not [row for row in bindings() if row["telegram_id"] == "555000111"]
+    assert bind(4, "777") and [row for row in bindings() if row["telegram_id"] == "777"]
+
+
+def test_bind_script_reports_unknown_client(db):
+    from scripts.bind_telegram import bind
+
+    with pytest.raises(ValueError):
+        bind(999, "123")
+
+
+def test_outbox_can_be_pulled_for_telegram_channel(api):
+    """Каналу Telegram отдаются только его сообщения — web-сообщения не перепутаются."""
+    api.post("/api/messages", json={"client_id": 1, "text": "Сколько стоит PX-M4200?", "channel": "telegram"})
+    batch = api.get("/api/outbox", params={"channel": "telegram"}).json()
+
+    assert batch and all(item["channel"] == "telegram" for item in batch)
+    assert api.get("/api/outbox", params={"channel": "web"}).json() == []

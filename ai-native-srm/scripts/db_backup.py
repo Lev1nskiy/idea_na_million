@@ -1,6 +1,6 @@
 """Консистентный бэкап и восстановление SQLite-базы (шаг 6: деплой).
 
-    python scripts/db_backup.py --out backups/crm.db --rotate 7
+    python scripts/db_backup.py --out backups/crm.db --rotate 7 --stamp   # ежедневный cron
     python scripts/db_backup.py --in backups/crm.db      # восстановление (сервис остановлен!)
 
 Почему не `cp crm.db`: при активных записях копия может оказаться битой — журнал
@@ -16,6 +16,7 @@ import os
 import shutil
 import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -71,6 +72,17 @@ def restore(src: Path) -> Path:
     return dst
 
 
+def stamped(path: Path, now: datetime | None = None) -> Path:
+    """Добавляет к имени снимка метку времени: crm.db → crm-20261015-031500.db.
+
+    Нужно для регулярных бэкапов по cron: без метки каждый запуск перезаписывает один и тот же
+    файл, и «хранить 7 снимков» превращается в «хранить один». С меткой файлы копятся, а
+    `--rotate 7` удаляет самые старые.
+    """
+    moment = now or datetime.now()
+    return path.with_name(f"{path.stem}-{moment:%Y%m%d-%H%M%S}{path.suffix}")
+
+
 def rotate(pattern: str, keep: int) -> list[Path]:
     """Оставляет `keep` самых свежих снимков, остальные удаляет (ротация бэкапов)."""
     folder = Path(pattern).parent
@@ -92,10 +104,12 @@ def main() -> None:
     group.add_argument("--out", help="файл снимка для бэкапа")
     group.add_argument("--in", dest="restore_from", help="снимок для восстановления")
     parser.add_argument("--rotate", type=int, default=0, help="сколько снимков хранить (0 — не чистить)")
+    parser.add_argument("--stamp", action="store_true", help="добавить к имени снимка метку времени (cron)")
     args = parser.parse_args()
 
     if args.out:
-        path = backup(Path(args.out))
+        target = stamped(Path(args.out)) if args.stamp else Path(args.out)
+        path = backup(target)
         size_kb = path.stat().st_size / 1024
         print(f"бэкап: {path} ({size_kb:.0f} КБ)")
         if args.rotate:

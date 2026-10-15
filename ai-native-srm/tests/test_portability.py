@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -169,6 +170,29 @@ def test_sqlite_backup_and_restore(db, tmp_path, monkeypatch):
 
     assert _counts(db)["messages"] == 2
     assert live.with_name(live.name + ".pre-restore").exists()  # прежняя база сохранена
+
+
+def test_backup_stamp_and_rotation_keep_newest(db, tmp_path, monkeypatch):
+    """Регулярные бэкапы: `--stamp` даёт уникальные имена, ротация оставляет N свежих."""
+    module = _load_db_backup()
+    live = tmp_path / "live.db"
+    monkeypatch.setenv("DB_URL", f"sqlite:///{live.as_posix()}")
+    db.configure_engine(f"sqlite:///{live.as_posix()}")
+    db.init_db()
+    _seed(db)
+
+    folder = tmp_path / "backups"
+    for hour in range(9):
+        snapshot = module.stamped(folder / "crm.db", datetime(2026, 10, 15, hour, 0, 0))
+        module.backup(snapshot)
+
+    assert len(list(folder.glob("*.db"))) == 9
+    kept = module.rotate(str(folder / "*.db"), 7)
+
+    assert len(kept) == 7
+    assert kept[0].name == "crm-20261015-080000.db"      # самый свежий
+    assert not (folder / "crm-20261015-000000.db").exists()
+    assert module.stamped(Path("backups/crm.db"), datetime(2026, 1, 2, 3, 4, 5)).name == "crm-20260102-030405.db"
 
 
 def _load_db_backup():

@@ -1,0 +1,16 @@
+# Ежедневный бэкап БД с ротацией 7 снимков (Шаг 6).
+# Установка на хосте:  crontab -e   → вставить строку ниже (путь поправить).
+# Бэкап идёт на ЖИВОЙ базе через sqlite3.Connection.backup(), останавливать сервис не нужно.
+
+# Вариант A (docker compose):
+0 3 * * *  cd /opt/ai-native-crm && docker compose run --rm backup >> /var/log/crm-backup.log 2>&1
+# (сервис backup запускает: python scripts/db_backup.py --out backups/crm.db --rotate 7 --stamp,
+#  поэтому каждый снимок получает имя crm-YYYYmmdd-HHMMSS.db, а старые удаляются по ротации)
+
+# Вариант B (запуск без docker, python из venv):
+# 0 3 * * *  cd /opt/ai-native-crm && DB_URL=sqlite:////var/lib/crm/crm.db .venv/bin/python scripts/db_backup.py --out backups/crm.db --rotate 7 --stamp >> /var/log/crm-backup.log 2>&1
+
+# Проверка, что бэкапы действительно делаются: в backups/ должно быть 7 файлов crm-YYYYmmdd-HHMMSS.db
+# Восстановление (сервис остановлен!): docker compose stop api && docker compose run --rm backup \
+#   python scripts/db_backup.py --in backups/crm-<дата>.db && docker compose start api
+# Восстановление останавливает только API: UI и бот читают данные через него.

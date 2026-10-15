@@ -18,4 +18,6 @@ httpx>=0.27                # тесты админ-API через fastapi.TestCl
 streamlit>=1.32
 streamlit-autorefresh>=1.0
 requests>=2.31
-# aiogram>=3          # Шаг 6: Telegram
+# Шаг 6: Telegram-канал. Нужен только сервису bot; API и UI на нём не завязаны,
+# а импорт aiogram в канале ленивый — поэтому без пакета бот корректно скажет, что ему нужен aiogram.
+aiogram>=3.13
