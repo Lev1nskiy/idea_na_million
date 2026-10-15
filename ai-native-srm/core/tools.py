@@ -111,9 +111,21 @@ def item_facts(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_EXACT_MATCH_SCORE = 5  # совпадение с SKU или номером модели (см. _search)
+
+
 def catalog_lookup(client_id: int, query: str, limit: int = 3) -> list[dict[str, Any]]:
-    """Позиции каталога по запросу. Каталог публичный; client_id — для единого контракта tools."""
-    return [item_facts(item) for _, item in _search(query)[:limit]]
+    """Позиции каталога по запросу. Каталог публичный; client_id — для единого контракта tools.
+
+    Порог релевантности: если в запросе есть модель/SKU, «соседи» по номеру
+    (D-4200 и T-4800 для PX-M4200) в ответ не попадают, а не выглядят альтернативами.
+    """
+    ranked = _search(query)
+    if not ranked:
+        return []
+    best = ranked[0][0]
+    threshold = max(_EXACT_MATCH_SCORE, best - 1) if best >= _EXACT_MATCH_SCORE else 1
+    return [item_facts(item) for score, item in ranked if score >= threshold][:limit]
 
 
 # ---------------------------------------------------------------------------
