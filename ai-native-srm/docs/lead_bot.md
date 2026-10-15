@@ -76,6 +76,69 @@ python -m channels.telegram_lead_bot           # приём заявок (long p
 
 ---
 
+## Запуск как сервис (чтобы бот работал постоянно)
+
+Long polling не требует белого IP и вебхука — боту достаточно исходящего соединения, поэтому
+он спокойно живёт на ноутбуке или в контейнере за NAT.
+
+**Docker** (рекомендуемый способ, если API уже в compose):
+
+```bash
+docker compose --profile lead up --build -d      # сервис lead-bot в docker-compose.yml
+docker compose logs -f lead-bot                  # видно, кто что спрашивает
+```
+
+**Linux (systemd)** — файл `/etc/systemd/system/lead-bot.service`:
+
+```ini
+[Unit]
+Description=Telegram lead bot (AI-native CRM)
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/ai-native-srm
+EnvironmentFile=/opt/ai-native-srm/.env
+ExecStart=/opt/ai-native-srm/.venv/bin/python -m channels.telegram_lead_bot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl enable --now lead-bot
+journalctl -u lead-bot -f
+```
+
+**Windows** — Планировщик задач: задание «При запуске компьютера», действие
+`python -m channels.telegram_lead_bot`, рабочая папка — корень проекта, галка «Выполнять вне
+зависимости от входа пользователя». Либо `nssm install lead-bot python -m channels.telegram_lead_bot`.
+
+## Диагностика
+
+Сначала всегда `python -m channels.telegram_lead_bot --check` (к Telegram не ходит, показывает
+настройки и доступность API).
+
+| Симптом | Причина и что делать |
+|---|---|
+| `Не хватает переменных: TG_LEAD_BOT_TOKEN` | токен не задан в `.env` — взять у @BotFather |
+| `НЕ задан BOT_API_TOKEN` / `/api/leads ответит 503` | сервисный токен пуст в `.env` **бэкенда**; он же нужен боту |
+| `API: НЕ отвечает — Connection refused` | не запущен uvicorn или неверный `API_URL` (в Docker — `http://api:8000`, не `localhost`) |
+| `401 неверный X-Bot-Token` в логах бота | `BOT_API_TOKEN` бота и бэкенда разошлись — привести к одному значению и перезапустить оба |
+| `Телефон не распознан` у клиента | это норма: шаг повторяется, пока не введут номер или «-» |
+| `aiogram не установлен` | `pip install -r requirements.txt` (aiogram 3 ленивый: без него API работает) |
+| Ответы не идут менеджеру в Telegram | пустой `TG_MANAGER_CHAT_ID` или неверный id (узнать у @userinfobot); в логах — `Не смог уведомить менеджера` |
+| Бот отвечает «Попробуйте ещё раз: «да»» | API был недоступен в момент отправки; ответы сохранены в сессии, повторная «да» досылает анкету |
+
+Проверить, что заявки доходят, можно и без Telegram — отправить анкету напрямую:
+
+```bash
+curl -X POST http://localhost:8000/api/leads -H "X-Bot-Token: $BOT_API_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"name":"Тест Тестов","phone":"8 999 000-11-22","request":"проверка ручки"}'
+```
+
 ## Тесты
 
 ```bash
