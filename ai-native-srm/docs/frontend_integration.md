@@ -245,11 +245,16 @@ curl -s localhost:8030/api/site/policy -H "X-Auth-Token: $TOKEN" | head -c 200  
 curl -s -o /dev/null -w '%{http_code}\n' localhost:8030/api/site/conversations    # 401 — без токена закрыто
 ```
 
-Фронтенд-контур (`frnt/`): сессия в httpOnly-cookie `los_session`, guard в `src/proxy.ts`
-(без сессии страницы уводят на `/login?next=…`, `/api/*` отдают 401, `/api/health` и вход — публичны);
-серверный прокси добавляет `X-Auth-Token` к запросам в `/api/site/*`. Когда бэкенд выключен, сайт
+Фронтенд-контур (`frnt/`): сессия в httpOnly-cookie `los_session` (на https — `SameSite=None`,
+иначе cookie не живёт во фрейме) плюс резервный заголовок `X-Los-Token` для браузеров, которые
+сторонние cookie режут; guard в `src/proxy.ts` (без сессии обычная загрузка страницы уводит на
+`/login?next=…`, `/api/*` отдают 401, `/api/health` и вход — публичны, изменяющие запросы принимаются
+только при `Sec-Fetch-Site: same-origin`); серверный прокси добавляет `X-Auth-Token` к запросам
+в `/api/site/*`. Когда бэкенд выключен, сайт
 отвечает демо-движком, но **права остаются прежними**: `src/server/users.ts::mockAdminGuard` закрывает
 `/api/policy*` и `/api/demo/reset` тем же правилом «только администратор».
 
 Тесты: `tests/test_auth.py` (13 проверок — роли, сессии, управление учётками, секреты в БД)
-и ролевые проверки в `tests/test_ui_bridge.py`.
+и ролевые проверки в `tests/test_ui_bridge.py`. Клиентский слой сессии проверяется отдельным
+прогоном без браузера (подмена `window`/`sessionStorage`/`fetch`): вход, оба канала сессии,
+гашение сессии по 401.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrainCircuit, KeyRound, LogIn, ShieldCheck, User } from "lucide-react";
 import { api } from "@/lib/api";
@@ -14,14 +14,24 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const nextPath = () => {
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next && next.startsWith("/") ? next : "/";
+  };
+
+  useEffect(() => {
+    // Уже вошли — форма не нужна. Внутри фрейма серверный редирект недоступен, поэтому
+    // проверяем сессию на клиенте; 401 обрабатывает lib/api.ts.
+    api.me().then(() => router.replace(nextPath())).catch(() => { /* не вошли — остаёмся на форме */ });
+  }, [router]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
       await api.login(login.trim(), password);
-      const next = new URLSearchParams(window.location.search).get("next");
-      router.replace(next && next.startsWith("/") ? next : "/");
+      router.replace(nextPath());
       router.refresh();
     } catch (err) {
       // текст ошибки приходит из API: «Неверный логин или пароль» / «Учётка отключена администратором»

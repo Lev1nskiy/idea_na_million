@@ -78,7 +78,7 @@ export function Nav() {
 
   const reset = async () => {
     setResetting(true);
-    await fetch("/api/demo/reset", { method: "POST" });
+    await api.demoReset();
     window.location.reload();
   };
 
