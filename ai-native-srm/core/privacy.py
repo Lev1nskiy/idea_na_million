@@ -72,11 +72,21 @@ def text_hash(text: str) -> str:
 
 
 class PiiLogFilter(logging.Filter):
-    """logging.Filter, маскирующий ПДн в сообщении записи."""
+    """logging.Filter, маскирующий ПДн в записи лога.
+
+    Важно: аргументы %-форматирования маскируются ПОЭЛЕМЕНТНО, а не подставляются в msg.
+    Обнулять record.args нельзя: форматтеры, которые сами разбирают args (access-логи
+    uvicorn ждут кортеж из 5 элементов), на этом падают с TypeError.
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        record.msg = mask_pii(record.getMessage())
-        record.args = None
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {key: mask_payload(value) for key, value in record.args.items()}
+            elif isinstance(record.args, tuple):
+                record.args = tuple(mask_payload(value) for value in record.args)
+        elif isinstance(record.msg, str):
+            record.msg = mask_pii(record.msg)
         return True
 
 
@@ -92,8 +102,7 @@ def install_pii_log_filter() -> None:
 
     def factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
         record = old_factory(*args, **kwargs)
-        record.msg = mask_pii(record.getMessage())
-        record.args = None
+        PiiLogFilter().filter(record)  # маскируем на месте, сохраняя args и msg-шаблон
         return record
 
     logging.setLogRecordFactory(factory)

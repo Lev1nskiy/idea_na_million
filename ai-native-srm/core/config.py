@@ -25,6 +25,7 @@ class Settings:
     gigachat_verify_ssl: bool
     yandex_api_key: str
     yandex_folder_id: str
+    admin_token: str
     tg_bot_token: str
     tg_manager_chat_id: str
     log_level: str
@@ -49,6 +50,7 @@ def get_settings() -> Settings:
         gigachat_verify_ssl=_env_bool("GIGACHAT_VERIFY_SSL", False),
         yandex_api_key=os.getenv("YANDEX_API_KEY", ""),
         yandex_folder_id=os.getenv("YANDEX_FOLDER_ID", ""),
+        admin_token=os.getenv("ADMIN_TOKEN", ""),
         tg_bot_token=os.getenv("TG_BOT_TOKEN", ""),
         tg_manager_chat_id=os.getenv("TG_MANAGER_CHAT_ID", ""),
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
