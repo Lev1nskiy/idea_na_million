@@ -63,16 +63,27 @@ def test_update_policy_validates_ranges(db):
 
 
 def test_discount_tier_is_strictly_greater(db):
+    """Порог тира работает строго «выше»: ровно на границе скидки ещё нет."""
     policy = get_policy()
-    assert calc_allowed_discount(policy, 1, 150_000, "new") == 0  # «свыше 150 000»
-    assert calc_allowed_discount(policy, 1, 150_001, "new") == 12
+    for tier in policy.discounts.tiers:
+        at_threshold = calc_allowed_discount(policy, 1, tier.min_sum, "new")
+        above = calc_allowed_discount(policy, 1, tier.min_sum + 1, "new")
+        assert above >= tier.pct and above >= at_threshold
+    smallest = min(policy.discounts.tiers, key=lambda x: x.min_sum)
+    assert calc_allowed_discount(policy, 1, smallest.min_sum, "new") < smallest.pct
+    assert calc_allowed_discount(policy, 1, smallest.min_sum + 1, "new") == smallest.pct
 
 
 def test_loyal_bonus_and_cap(db):
+    """Лояльный клиент получает бонус поверх тира, но не выше потолка матрицы."""
     policy = get_policy()
-    assert calc_allowed_discount(policy, 1, 200_000, "loyal") == 13  # 12 + 1
+    tier = max(policy.discounts.tiers, key=lambda x: x.min_sum)
+    expected = min(tier.pct + policy.discounts.loyal_bonus_pct, policy.discounts.max_pct)
+    assert calc_allowed_discount(policy, 1, tier.min_sum + 1, "loyal") == expected
+    assert calc_allowed_discount(policy, 1, tier.min_sum + 1, "new") == tier.pct
+
     update_policy({"discounts": {"max_pct": 10}}, author="admin")
-    assert calc_allowed_discount(get_policy(), 1, 200_000, "loyal") == 10  # потолок
+    assert calc_allowed_discount(get_policy(), 1, tier.min_sum + 1, "loyal") == 10  # потолок
 
 
 def test_delivery_compensation_three_days_is_five_percent(db):

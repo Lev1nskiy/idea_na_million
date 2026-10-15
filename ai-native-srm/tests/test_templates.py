@@ -34,8 +34,9 @@ def test_no_guilt_admission(policy):
 def test_ack_uses_honest_sla_from_policy(policy):
     work = templates.ack_dispute(get_manager_sla(policy, datetime(2026, 10, 15, 9, 0)))
     night = templates.ack_dispute(get_manager_sla(policy, datetime(2026, 10, 15, 20, 0)))
-    assert "в течение 2 часов" in work and "нерабочее" not in work
-    assert "нерабочее время" in night and "в течение 12 часов" in night
+    sla = policy.manager_sla
+    assert f"в течение {sla.response_hours} час" in work and "нерабочее" not in work
+    assert "нерабочее время" in night and f"в течение {sla.off_hours_response_hours} час" in night
 
 
 def test_sla_phrase_follows_policy_change(policy):

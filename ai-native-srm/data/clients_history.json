@@ -2,6 +2,7 @@
   "clients": [
     {
       "client_id": 1,
+      "site_id": "C-1005",
       "name": "ООО «Альфа Принт»",
       "contact": "Дмитрий Глаголев",
       "segment": "new",
@@ -15,6 +16,7 @@
     },
     {
       "client_id": 2,
+      "site_id": "C-1001",
       "name": "ООО «ГрандСнаб»",
       "contact": "Ирина Лебедева",
       "segment": "std",
@@ -80,6 +82,7 @@
     },
     {
       "client_id": 3,
+      "site_id": "C-1003",
       "name": "АО «НордБанк»",
       "contact": "Марина Северова",
       "segment": "corp",
@@ -148,6 +151,7 @@
     },
     {
       "client_id": 4,
+      "site_id": "C-1004",
       "name": "ИП Соколова А. В.",
       "contact": "Анна Соколова",
       "segment": "std",
@@ -192,6 +196,7 @@
     },
     {
       "client_id": 5,
+      "site_id": "C-1006",
       "name": "ООО «Меридиан Логистика»",
       "contact": "Ольга Ратнер",
       "segment": "loyal",
@@ -242,6 +247,7 @@
     },
     {
       "client_id": 6,
+      "site_id": "C-1002",
       "name": "ООО «Вектор Трейд»",
       "contact": "Павел Сорокин",
       "segment": "std",

@@ -24,6 +24,17 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 # `status` (он влияет на лояльную скидку: policy.discounts.loyal_statuses).
 SEGMENT_TO_STATUS = {"new": "new", "std": "regular", "corp": "corporate", "loyal": "loyal"}
 
+# Канон идентификаторов сайта (frnt: C-1001…C-1006) — порядок их справочника, он же в сценариях
+# на странице чата и в текстах демо. Наши client_id свои, поэтому связь хранится в данных.
+SITE_IDS = {
+    "ООО «Альфа Принт»": "C-1005",
+    "ООО «ГрандСнаб»": "C-1001",
+    "АО «НордБанк»": "C-1003",
+    "ИП Соколова А. В.": "C-1004",
+    "ООО «Меридиан Логистика»": "C-1006",
+    "ООО «Вектор Трейд»": "C-1002",
+}
+
 # --- 1. Каталог: позиции сайта (SKU, категория для поиска, габариты демо-данных) -------------
 FRONTEND_ITEMS = [
     {"sku": "MF-401A", "name": "МФУ ЛазерФокс MF-401A", "category": "mfu", "price": 28900,
@@ -175,9 +186,11 @@ CLIENTS = [
 
 
 def _with_status(client: dict) -> dict:
-    """Один источник истины: сегмент сайта задаёт движковый status (порядок полей сохраняем)."""
-    ordered = {}
+    """Один источник истины: сегмент сайта задаёт движковый status, имя — идентификатор сайта."""
+    ordered = {"client_id": client["client_id"], "site_id": SITE_IDS[client["name"]]}
     for key, value in client.items():
+        if key == "client_id":
+            continue
         ordered[key] = value
         if key == "segment":
             ordered["status"] = SEGMENT_TO_STATUS[value]
