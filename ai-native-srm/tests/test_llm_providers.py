@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import sys
 import types
 import urllib.error
@@ -26,6 +27,7 @@ from core.llm import (
 )
 from core.llm.base import LLMTimeout, default_timeout
 from core.llm.gigachat import GigaChatLLM
+from core.llm.local import LocalLLM
 from core.llm.yandex import YandexGPTLLM
 
 # ---------------------------------------------------------------- GigaChat
@@ -252,6 +254,74 @@ def test_yandex_timeout_and_broken_response(monkeypatch: pytest.MonkeyPatch) -> 
         YandexGPTLLM("k", "f").complete_text("s", "u", timeout=3.0)
 
 
+# ---------------------------------------------------------------- локальная модель
+
+
+def _openai_body(text: str = "Локальный ответ") -> dict[str, Any]:
+    """Ответ в формате OpenAI (его отдают Ollama /v1, LM Studio, llama.cpp, vLLM)."""
+    return {"choices": [{"message": {"role": "assistant", "content": text}, "index": 0}], "model": "local"}
+
+
+def test_local_openai_payload_and_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ollama/LM Studio/llama.cpp/vLLM говорят на одном OpenAI-совместимом протоколе."""
+    fake = _FakeHTTP(body=_openai_body())
+    _patch_urlopen(monkeypatch, fake)
+    llm = LocalLLM(model="gigachat-20b", base_url="http://127.0.0.1:11434/v1", max_tokens=512)
+
+    assert llm.complete_text("Ты менеджер", "Скидка?", timeout=5.0) == "Локальный ответ"
+    assert fake.request is not None
+    assert fake.request.full_url == "http://127.0.0.1:11434/v1/chat/completions"
+    payload = _sent_payload(fake)
+    assert payload["model"] == "gigachat-20b" and payload["stream"] is False
+    assert payload["max_tokens"] == 512
+    assert [m["role"] for m in payload["messages"]] == ["system", "user"]
+    # ключа нет — заголовок авторизации не отправляем (локальные серверы его не требуют)
+    assert "authorization" not in {k.lower() for k in fake.request.headers}
+
+
+def test_local_base_url_without_v1_is_normalized(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeHTTP(body=_openai_body())
+    _patch_urlopen(monkeypatch, fake)
+    LocalLLM("model", base_url="http://127.0.0.1:8080").complete_text("s", "u", timeout=3.0)
+    assert fake.request is not None
+    assert fake.request.full_url == "http://127.0.0.1:8080/v1/chat/completions"
+
+
+def test_local_api_key_for_gateways(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeHTTP(body=_openai_body())
+    _patch_urlopen(monkeypatch, fake)
+    LocalLLM("model", api_key="sk-local").complete_text("s", "u", timeout=3.0)
+    assert fake.request is not None
+    assert {k.lower(): v for k, v in fake.request.headers.items()}["authorization"] == "Bearer sk-local"
+
+
+def test_local_errors_are_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
+    # сервер не запущен — подсказываем команду
+    _patch_urlopen(monkeypatch, _FakeHTTP(error=urllib.error.URLError(ConnectionRefusedError(111, "refused"))))
+    with pytest.raises(LLMError) as exc_info:
+        LocalLLM("model").complete_text("s", "u", timeout=2.0)
+    assert "ollama serve" in str(exc_info.value)
+
+    # модели нет в локальном хранилище
+    _patch_urlopen(monkeypatch, _FakeHTTP(
+        error=urllib.error.HTTPError("url", 404, "not found", {}, None)  # type: ignore[arg-type]
+    ))
+    with pytest.raises(LLMError) as exc_info:
+        LocalLLM("нет-такой").complete_text("s", "u", timeout=2.0)
+    assert "ollama pull" in str(exc_info.value)
+
+    # пустой ответ (бывает у квантованных весов с обрезанным контекстом)
+    _patch_urlopen(monkeypatch, _FakeHTTP(body={"choices": [{"message": {"content": "   "}}]}))
+    with pytest.raises(LLMError):
+        LocalLLM("model").complete_text("s", "u", timeout=2.0)
+
+
+def test_local_timeout_is_mapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_urlopen(monkeypatch, _FakeHTTP(error=socket.timeout("slow")))
+    with pytest.raises(LLMTimeout):
+        LocalLLM("model").complete_text("s", "u", timeout=1.0)
+
+
 # ---------------------------------------------------------------- цепочка и настройки
 
 
@@ -259,7 +329,7 @@ def _isolate(monkeypatch: pytest.MonkeyPatch) -> None:
     """Гарантирует, что чужие переменные окружения не влияют на сборку цепочки."""
     for var in (
         "GIGACHAT_CREDENTIALS", "YANDEX_API_KEY", "YANDEX_IAM_TOKEN", "YANDEX_FOLDER_ID",
-        "LLM_PROVIDER", "LLM_TIMEOUT_S",
+        "LLM_PROVIDER", "LLM_TIMEOUT_S", "LOCAL_MODEL", "LOCAL_BASE_URL", "LOCAL_API_KEY",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -281,6 +351,33 @@ def test_explicit_order_is_respected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("YANDEX_FOLDER_ID", "folder")
 
     assert [p.name for p in build_chain(get_settings()).providers] == ["yandex", "gigachat", "mock"]
+
+
+def test_auto_uses_local_when_it_is_the_only_free_option(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Без облачных ключей, но с локальной моделью цепочка идёт local → mock (это и есть бесплатный контур)."""
+    _isolate(monkeypatch)
+    monkeypatch.setenv("LLM_PROVIDER", "auto")
+    monkeypatch.setenv("LOCAL_MODEL", "GigaChat-20B-A3B:q4_K_M")
+
+    assert [p.name for p in build_chain(get_settings()).providers] == ["local", "mock"]
+
+
+def test_cloud_is_preferred_over_local_in_auto(monkeypatch: pytest.MonkeyPatch) -> None:
+    _isolate(monkeypatch)
+    monkeypatch.setenv("LLM_PROVIDER", "auto")
+    monkeypatch.setenv("GIGACHAT_CREDENTIALS", "key")
+    monkeypatch.setenv("LOCAL_MODEL", "GigaChat-20B-A3B")
+
+    assert [p.name for p in build_chain(get_settings()).providers] == ["gigachat", "local", "mock"]
+
+
+def test_local_provider_visible_in_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    _isolate(monkeypatch)
+    status = {item["name"]: item for item in provider_status(get_settings())}
+    assert status["local"]["configured"] is False
+    assert "LOCAL_MODEL" in status["local"]["missing"][0]
+    monkeypatch.setenv("LOCAL_MODEL", "model")
+    assert {i["name"]: i["configured"] for i in provider_status(get_settings())}["local"] is True
 
 
 def test_mock_only_mode_never_calls_network(monkeypatch: pytest.MonkeyPatch) -> None:

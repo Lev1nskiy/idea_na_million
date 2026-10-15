@@ -2,7 +2,8 @@
 
 Порядок задаётся `LLM_PROVIDER`:
 
-* `auto` (по умолчанию) — сначала облако, если для него есть ключи: `gigachat`, затем `yandex`;
+* `auto` (по умолчанию) — сначала облако, если для него есть ключи: `gigachat`, затем `yandex`,
+  затем локальная модель, если задан `LOCAL_MODEL`;
 * `gigachat` / `yandex` — этот провайдер первым, второй облачный остаётся следующим шагом;
 * `yandex,gigachat` — явный порядок цепочки (через запятую);
 * `mock` — только демо-движок, без обращений в сеть.
@@ -26,6 +27,7 @@ from core.llm.base import (
     LLMTimeout,
 )
 from core.llm.gigachat import GigaChatLLM
+from core.llm.local import LocalLLM
 from core.llm.mock import MockLLM
 from core.llm.yandex import YandexGPTLLM
 
@@ -45,8 +47,9 @@ __all__ = [
 logger = logging.getLogger(__name__)
 _EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="llm")
 
-#: Провайдеры, которые включаются автоматически, если заданы их ключи (порядок = приоритет).
-AUTO_ORDER = ("gigachat", "yandex")
+#: Провайдеры, которые включаются автоматически, если они настроены (порядок = приоритет).
+#: `local` — единственный бесплатный вариант: открытые веса на своей машине (см. docs/llm_setup.md).
+AUTO_ORDER = ("gigachat", "yandex", "local")
 
 
 class FallbackChain:
@@ -137,9 +140,21 @@ def _yandex(s: Settings) -> LLMProvider | None:
     )
 
 
+def _local(s: Settings) -> LLMProvider | None:
+    if not s.local_model:
+        return None
+    return LocalLLM(
+        model=s.local_model,
+        base_url=s.local_base_url,
+        api_key=s.local_api_key,
+        max_tokens=s.local_max_tokens,
+    )
+
+
 _FACTORIES: dict[str, Callable[[Settings], LLMProvider | None]] = {
     "gigachat": _gigachat,
     "yandex": _yandex,
+    "local": _local,
 }
 
 
@@ -162,6 +177,9 @@ def _missing(s: Settings, name: str) -> list[str]:
         if not s.yandex_folder_id:
             missing.append("YANDEX_FOLDER_ID")
         return missing
+    if name == "local":
+        # Локальная модель включается явно: без LOCAL_MODEL неизвестно, что за модель поднимать.
+        return [] if s.local_model else ["LOCAL_MODEL (например, gpt-oss:20b или своя GGUF-модель)"]
     return []
 
 

@@ -33,6 +33,10 @@ class Settings:
     yandex_model_uri: str
     yandex_max_tokens: int
     yandex_reasoning_mode: str
+    local_model: str
+    local_base_url: str
+    local_api_key: str
+    local_max_tokens: int
     admin_token: str
     frontend_dir: str
     tg_bot_token: str
@@ -101,6 +105,12 @@ def get_settings() -> Settings:
         # Пусто — режим рассуждений не трогаем (кроме моделей 5-го поколения: там выключаем,
         # чтобы ответ был коротким и быстрым). DISABLED/ENABLED — задать явно.
         yandex_reasoning_mode=os.getenv("YANDEX_REASONING_MODE", "").lower(),
+        # Локальный OpenAI-совместимый сервер (Ollama, LM Studio, llama.cpp, vLLM).
+        # Пусто → провайдер выключен; ключ нужен только сторонним шлюзам, локальным — нет.
+        local_model=os.getenv("LOCAL_MODEL", ""),
+        local_base_url=os.getenv("LOCAL_BASE_URL", "http://127.0.0.1:11434/v1"),
+        local_api_key=os.getenv("LOCAL_API_KEY", ""),
+        local_max_tokens=_env_int("LOCAL_MAX_TOKENS", 800),
         admin_token=os.getenv("ADMIN_TOKEN", ""),
         frontend_dir=os.getenv("FRONTEND_DIR", ""),
         tg_bot_token=os.getenv("TG_BOT_TOKEN", ""),
