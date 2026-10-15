@@ -34,7 +34,7 @@ def utcnow() -> datetime:
 def top_category(*categories: str | None) -> str | None:
     """Возвращает наиболее приоритетную категорию из переданных."""
     valid = [c for c in categories if c in CATEGORY_RANK]
-    return min(valid, key=lambda c: CATEGORY_RANK[c]) if valid else None
+    return min(valid, key=lambda c: (CATEGORY_RANK[c], c)) if valid else None
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +93,23 @@ class Decision(BaseModel):
     policy_version: int = 0
     needs_manager_override: bool = False
     clarify: bool = False  # confidence < min_confidence -> уточняющий вопрос
+    clarify_kind: Literal["generic", "people_count", "order_details", "hold_off"] | None = None
+    # Граница C/I (Ст. 6): что делать со скидкой и какой процент (макс. по политике или выдаваемый)
+    discount_action: Literal["grant", "offer_max", "confirm_limit", "none_available"] | None = None
+    discount_pct: float | None = None
+    # Изменения состояния диалога, которые применяет оркестратор (decide() сам ничего не пишет)
+    state_updates: dict[str, Any] = Field(default_factory=dict)
+
+
+class ConvState(BaseModel):
+    """Снимок состояния диалога, нужный слою DECISION (decide() — чистая функция)."""
+
+    status: str = "ACTIVE"  # ACTIVE | HOLD | HANDOFF | RESOLVED
+    suspicious: bool = False
+    discount_offer_made: bool = False
+    discount_push_count: int = 0
+    low_conf_streak: int = 0
+    category: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +217,7 @@ class BotMessage(BaseModel):
 
 
 class BotResponse(BaseModel):
+    conversation_id: int | None = None
     messages: list[BotMessage] = Field(default_factory=list)
     card_updates: dict[str, Any] = Field(default_factory=dict)
     notifications: list[dict[str, Any]] = Field(default_factory=list)

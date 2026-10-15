@@ -16,6 +16,7 @@ pycache/
 *.so
 .pytest_cache/
 .coverage
+*.db
 
 node_modules/
 .pnpm-store/
