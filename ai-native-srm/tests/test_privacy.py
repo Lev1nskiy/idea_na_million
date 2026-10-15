@@ -68,3 +68,60 @@ def test_log_filter_masks_pii():
     record = logging.LogRecord("t", logging.INFO, __file__, 1, "client %s wrote", ("a@b.ru",), None)
     assert PiiLogFilter().filter(record) is True
     assert record.getMessage() == "client [EMAIL] wrote"
+
+
+# --- Регрессия: фильтр не должен ломать access-логи uvicorn --------------------------------
+def test_access_log_record_formats_with_filter_installed():
+    """uvicorn.access сам разбирает record.args: фильтр обязан сохранить кортеж."""
+    import logging
+
+    from uvicorn.logging import AccessFormatter
+
+    from core.privacy import install_pii_log_filter
+
+    install_pii_log_filter()
+    logger = logging.getLogger("uvicorn.access")
+    record = logger.makeRecord(
+        "uvicorn.access", logging.INFO, __file__, 0,
+        '%s - "%s %s HTTP/%s" %d',
+        ("127.0.0.1:1234", "GET", "/api/health", "1.1", 200),
+        None,
+    )
+    # Формат uvicorn: статус подставляется строкой вида «200 OK», поэтому %s, а не %d.
+    text = AccessFormatter('%(client_addr)s - "%(request_line)s" %(status_code)s').format(record)
+    assert "200 OK" in text and "/api/health" in text
+
+
+def test_filter_masks_pii_inside_access_log_url():
+    """ПДн из URL access-лога (например, телефон в query) не попадают в лог."""
+    import logging
+
+    from uvicorn.logging import AccessFormatter
+
+    from core.privacy import PiiLogFilter
+
+    record = logging.LogRecord(
+        "uvicorn.access", logging.INFO, __file__, 0,
+        '%s - "%s %s HTTP/%s" %d',
+        ("127.0.0.1:1234", "GET", "/callback?phone=+79991234567", "1.1", 200),
+        None,
+    )
+    PiiLogFilter().filter(record)
+    text = AccessFormatter('%(client_addr)s - "%(request_line)s" %(status_code)s').format(record)
+    assert "+79991234567" not in text and "200 OK" in text
+
+
+def test_filter_masks_pii_in_args_and_message():
+    """ПДн из аргументов и из готового сообщения маскируются, текст остаётся читаемым."""
+    import logging
+
+    from core.privacy import PiiLogFilter
+
+    filter_ = PiiLogFilter()
+    via_args = logging.LogRecord("t", logging.INFO, __file__, 0, "клиент %s", ("+7 (999) 123-45-67",), None)
+    filter_.filter(via_args)
+    assert "123-45-67" not in via_args.getMessage() and "[PHONE]" in via_args.getMessage()
+
+    plain = logging.LogRecord("t", logging.INFO, __file__, 0, "почта ivan@example.com", None, None)
+    filter_.filter(plain)
+    assert "ivan@example.com" not in plain.getMessage() and "[EMAIL]" in plain.getMessage()
