@@ -24,7 +24,7 @@ def seed_traffic() -> dict[str, int]:
 
 
 def test_auto_decision_rate_uses_customer_formula(db):
-    ids = seed_traffic()
+    seed_traffic()
     metrics = learning.compute_metrics()
     assert metrics["conversations"] == 4
     assert metrics["auto_decision_rate_pct"] == 75.0  # (4 − 1 спор) / 4 × 100
