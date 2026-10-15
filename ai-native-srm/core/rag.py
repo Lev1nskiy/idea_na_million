@@ -40,6 +40,11 @@ def _chunks() -> tuple[KbChunk, ...]:
     return tuple(chunks)
 
 
+def reload() -> None:
+    """Сбрасывает кэш базы знаний (после замены data/knowledge_base.md)."""
+    _chunks.cache_clear()
+
+
 def _stems(text: str) -> set[str]:
     stems = set()
     for token in _TOKEN.findall(text.lower()):
