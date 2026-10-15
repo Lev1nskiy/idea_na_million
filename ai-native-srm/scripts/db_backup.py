@@ -34,9 +34,13 @@ def db_path() -> Path:
     return Path(url.removeprefix("sqlite:///"))
 
 
-def backup(dest: Path) -> Path:
-    """Консистентный снимок живой БД в файл dest."""
-    source_path = db_path()
+def backup(dest: Path, source: Path | None = None) -> Path:
+    """Консистентный снимок живой БД в файл dest.
+
+    `source` — явный путь к базе (нужен сервису: он снимает копию той БД, к которой
+    фактически подключён движок, а не той, что записана в DB_URL).
+    """
+    source_path = source or db_path()
     if not source_path.exists():
         raise SystemExit(f"файла БД нет: {source_path}")
     dest.parent.mkdir(parents=True, exist_ok=True)

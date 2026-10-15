@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Activity, BrainCircuit, LayoutGrid, LogOut, MessagesSquare, RotateCcw, ShieldAlert,
+  Activity, BrainCircuit, Database, LayoutGrid, LogOut, MessagesSquare, RotateCcw, ShieldAlert,
   SlidersHorizontal, Users,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -20,6 +20,7 @@ const BASE_ITEMS = [
 const ADMIN_ITEMS = [
   { href: "/policy", label: "Политика", icon: SlidersHorizontal },
   { href: "/team", label: "Сотрудники", icon: Users },
+  { href: "/data", label: "Данные", icon: Database },
 ];
 
 interface NotificationDto { id: string; active: boolean; read: boolean; }

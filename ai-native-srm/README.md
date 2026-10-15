@@ -33,6 +33,8 @@ python -m streamlit run ui\Home.py             # демо-стенд на http:/
 # .env: TG_BOT_TOKEN=<токен от @BotFather>, TG_MANAGER_CHAT_ID=<id менеджера>
 python -m channels.telegram_bot --check     # проверяет окружение без запуска бота
 python -m channels.telegram_bot             # клиентский чат + уведомления менеджеру
+python -m channels.telegram_lead_bot --check # бот-анкета: настройки и доступность API
+python -m channels.telegram_lead_bot         # бот-анкета: заявка → карточка клиента
 python scripts\bind_telegram.py --list      # кто из клиентов привязан к Telegram
 ```
 
@@ -107,11 +109,12 @@ docker compose run --rm backup              # снимок БД с ротаци�
 core/       логика: perception → understanding → decision → action → guardrails → learning
            (policy, tools, smooth_hold, handoff, templates, guardrails, privacy, rag, llm/*)
 app/        FastAPI: /api/messages, conversations, deals, clients, policy, metrics, admin
-channels/   адаптеры транспорта: telegram_bot (aiogram 3), email_imap (заглушка)
+channels/   адаптеры транспорта: telegram_bot (aiogram 3), telegram_lead_bot,
+            lead_flow (анкета без aiogram), email_imap (заглушка)
 ui/         Streamlit-стенд: чат клиента, дашборд менеджера, политика, метрики безопасности
 scripts/    seed_demo, export_state, import_state, db_backup, bind_telegram, chat_cli
 data/       каталог, клиенты и заказы, шаблоны КП, база знаний, Устав, policy_seed
-docs/       architecture.md, llm_choice.md, pitch.md, api.md, data_transfer.md
+docs/       architecture.md, llm_choice.md, pitch.md, api.md, data_transfer.md, lead_bot.md
 frontend-kit/ openapi.json + api-client.ts (TS) для подключения внешнего сайта
 ```
 
@@ -121,7 +124,7 @@ FastAPI, Streamlit и Telegram — его можно запускать из CLI
 ## Тесты
 
 ```powershell
-python -m pytest -q                  # 337 тестов, сеть не нужна (провайдеры подменяются)
+python -m pytest -q                  # 399 тестов, сеть не нужна (провайдеры подменяются)
 python -m pytest tests\test_scenarios.py -q -v
 ```
 
@@ -143,7 +146,8 @@ python -m channels.telegram_bot --check                                  # бо�
 * `docs/llm_choice.md` — сравнение провайдеров, стратегия промптов, план бенчмарка.
 * `docs/pitch.md` — проблема, решение, сценарий демо, экономика, честные допущения.
 * `docs/api.md` — все эндпоинты и порядок показа демо.
-* `docs/data_transfer.md` — перенос состояния между контурами.
+* `docs/data_transfer.md` — перенос состояния между контурами (CLI, admin-API, кнопки на странице «Данные»).
+* `docs/lead_bot.md` — Telegram-бот-анкета: заявка → карточка клиента.
 
 ## Состояние проекта
 

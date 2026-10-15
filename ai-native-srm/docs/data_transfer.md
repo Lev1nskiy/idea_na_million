@@ -46,6 +46,40 @@ curl -H "X-Admin-Token: $ADMIN_TOKEN" -F "file=@catalog.json" -X PUT \
      "http://localhost:8000/api/admin/reference-data/catalog"
 ```
 
+По кнопкам на сайте (под сессией администратора — токен живёт в httpOnly-cookie):
+
+```bash
+curl -b "los_session=$TOKEN" "http://localhost:3000/api/data/summary"          # что лежит в БД (прокси → /api/site/data/summary)
+curl -b "los_session=$TOKEN" -o state.json "http://localhost:3000/api/data/export?mask=true"
+curl -b "los_session=$TOKEN" -F "file=@state.json" \
+     "http://localhost:3000/api/data/import?mode=merge&dry_run=true"
+curl -b "los_session=$TOKEN" -o crm.sqlite3 "http://localhost:3000/api/data/backup"
+```
+
+---
+
+## Кнопки на сайте (страница «Данные»)
+
+Тот же перенос, но без терминала: раздел **«Данные»** в сайдбаре (только администратор).
+
+| Кнопка | Что делает | Ручка сайта → бэкенд |
+|---|---|---|
+| Скачать дамп | JSON состояния; чекбокс маскирования ПДн включён по умолчанию | `GET /api/data/export` → `GET /api/site/data/export` |
+| Скачать БД | бинарный снимок SQLite (консистентный, на живой базе) | `GET /api/data/backup` → `GET /api/site/data/backup` |
+| Проверить дамп | импорт с `dry_run=true`: показывает отчёт и ничего не пишет | `POST /api/data/import` → `POST /api/site/data/import` |
+| Загрузить в базу | импорт `merge`/`replace`; при ошибке — откат | там же, `dry_run=false` |
+| Состояние базы | число записей по таблицам, версия политики, размер файла | `GET /api/data/summary` → `GET /api/site/data/summary` |
+
+Почему так: правила переноса живут **в одном месте** — `app/transfer.py`. Из него берут логику
+и админ-API (`app/routers/admin.py`, токен `X-Admin-Token` для машин), и ручки сайта
+(`app/routers/data_api.py`, сессия администратора для людей). Дамп, скачанный кнопкой, принимается
+скриптом `scripts/import_state.py`, и наоборот — формат один.
+
+Доступ: ручки `/api/site/data/*` требуют роль `admin` (та же проверка `core.auth.admin_user`, что у
+политики). Менеджеру страница показывает объяснение вместо 403. Наружу (в интернет) дампы уходят
+только маскированными: галочка «маскировать ПДн» стоит по умолчанию, снятие — осознанное действие
+для закрытого контура.
+
 ---
 
 ## Правила, которые нельзя нарушать

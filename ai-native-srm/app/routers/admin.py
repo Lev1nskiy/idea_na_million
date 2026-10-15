@@ -16,29 +16,23 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
-import uuid
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
+from app import transfer
 from core import rag, tools
 from core.config import DATA_DIR, get_settings
-from core.portability import ImportMode, export_state, import_state
+from core.portability import ImportMode
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
-MAX_IMPORT_BYTES = 50 * 1024 * 1024  # 50 МБ: больше для SQLite-демо не нужно
-
-# Разрешённые к замене справочники: имя → (файл, ключ в JSON или None для текстовых)
-_REFERENCE: dict[str, tuple[str, str | None]] = {
-    "catalog": ("catalog.json", "items"),
-    "clients_history": ("clients_history.json", "clients"),
-    "quote_templates": ("quote_templates.json", "templates"),
-    "knowledge_base": ("knowledge_base.md", None),
-}
+# Правила переноса (размер, коды ошибок, формат) живут в app/transfer.py — там же ими
+# пользуются ручки сайта /api/site/data/*, чтобы контуры не расходились.
+MAX_IMPORT_BYTES = transfer.MAX_IMPORT_BYTES
+_REFERENCE = transfer.REFERENCE
 
 
 def require_admin(x_admin_token: Annotated[str | None, Header()] = None) -> None:
@@ -54,23 +48,14 @@ AdminOnly = Depends(require_admin)
 
 
 def _db_backup_file() -> Path:
-    """Консистентный снимок SQLite во временный файл (на живой БД)."""
-    from scripts.db_backup import backup, db_path  # импорт внутри: скрипт нужен только здесь
-
-    if not db_path().exists():
-        raise HTTPException(status_code=404, detail="файла БД ещё нет")
-    return backup(Path(tempfile.gettempdir()) / f"crm-{uuid.uuid4().hex}.sqlite3")
+    """Снимок БД делает app/transfer.py (тот же код, что и у кнопки на сайте)."""
+    return transfer.db_backup_file()
 
 
 @router.get("/export", dependencies=[AdminOnly])
 def export_dump(mask: bool = Query(default=True, description="маскировать ПДн (Ст. 4)")) -> JSONResponse:
     """Выгружает состояние БД одним JSON. mask=false — только для закрытого контура."""
-    dump = export_state(mask=mask)
-    filename = f"crm-state-{dump['exported_at'][:10]}{'-masked' if mask else ''}.json"
-    return JSONResponse(
-        content=dump,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    return transfer.build_export(mask)
 
 
 @router.post("/import", dependencies=[AdminOnly])
@@ -81,27 +66,13 @@ async def import_dump(
     dry_run: bool = Query(default=False),
 ) -> dict[str, Any]:
     """Загружает JSON-дамп. Импорт атомарный: ошибка → откат, БД не меняется."""
-    raw = await file.read()
-    if len(raw) > MAX_IMPORT_BYTES:
-        raise HTTPException(status_code=413, detail=f"дамп больше {MAX_IMPORT_BYTES // 1024 // 1024} МБ")
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=400, detail=f"не JSON: {exc.msg}") from exc
-    try:
-        report = import_state(payload, mode=mode, policy=policy, dry_run=dry_run)
-    except ValueError as exc:  # несовместимая версия схемы / маскированный дамп
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    if report.errors:
-        raise HTTPException(status_code=422, detail=report.model_dump())
-    return report.model_dump()
+    return await transfer.run_import(file, mode=mode, policy=policy, dry_run=dry_run)
 
 
 @router.get("/backup", dependencies=[AdminOnly])
 def sqlite_backup() -> FileResponse:
-    """Отдаёт бинарный снимок SQLite — его можно восстановить через scripts/db_backup.py --in."""
-    path = _db_backup_file()
-    return FileResponse(path, media_type="application/octet-stream", filename=path.name)
+    """Бинарный снимок SQLite: можно восстановить в другой контур или положить в архив."""
+    return transfer.build_backup()
 
 
 @router.get("/reference-data", dependencies=[AdminOnly])
