@@ -118,7 +118,11 @@ _PATTERN_SOURCES: list[tuple[str, str]] = [
      r"<\|(?:im_start|im_end|system)\|>|###\s*(?:system|instruction)|^\s*system\s*:)"),
     ("code_injection",
      r"(?i)(?:\b(?:eval|exec)\s*\(|\bos\.system\b|<script|javascript:|\[[^\]]*\]\((?:javascript|data):)"),
-    ("base64_blob", r"[A-Za-z0-9+/]{40,}={0,2}"),
+    # Base64-блоб: длинный токен со СМЕШАННЫМ регистром и «/+/=» или цифрой.
+    # Только цифры или один регистр — это номера накладных, документов 1С и длинные id,
+    # а не инъекция. Слева исключается «/», чтобы не ловить длинные URL-пути.
+    ("base64_blob",
+     r"(?<![\w./])(?=[A-Za-z0-9+/]*[a-z])(?=[A-Za-z0-9+/]*[A-Z])[A-Za-z0-9+/]{40,}={0,2}(?![\w/+])"),
     ("decode_request",
      rf"\b(?:decode|decrypt|расшифруй\w*|декодируй\w*|раскодируй\w*){_SEP}{_gap(3)}"
      r"(?:base64|b64|rot13|hex|шестнадцатерич\w*)"),
