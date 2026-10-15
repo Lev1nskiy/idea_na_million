@@ -221,3 +221,36 @@ def test_first_response_event_is_logged_with_latency(db):
 def test_policy_is_read_fresh_for_each_message(db):
     send("Сколько стоит PX-M4200?")
     assert get_policy().version == 1
+
+
+# --- Граница C/I в многошаговом диалоге (регрессии ревью шага 3) ------------------------------
+def test_discount_escalation_when_product_not_repeated(db):
+    """Клиент не повторяет модель — позиция и количество берутся из контекста диалога."""
+    first = send("Дайте скидку 20% на 10 штук PX-M4200")  # 389 000 ₽ → 12% по политике
+    conv = first.conversation_id
+    assert "12%" in first.messages[0].text  # одно предложение максимума
+
+    second = send("Всё равно нужна скидка 20%", conv_id=conv)
+    assert "12%" in second.messages[0].text
+    assert "максимальная скидка" in second.messages[0].text.lower()
+
+    third = send("Нет, нужна скидка 20%", conv_id=conv)  # 2-е настаивание → Smooth & Hold
+    assert third.messages[0].phase == "ACK"
+    with db.session_scope() as s:
+        assert s.get(m.Conversation, conv).status == "HOLD"
+    assert rows(db, m.Decision, conversation_id=conv)[-1].category == "I"
+
+
+def test_explicit_product_in_new_message_wins_over_context(db):
+    """Новая позиция в реплике важнее той, что была в диалоге раньше."""
+    conv = send("Дайте скидку 12% на 10 штук PX-M4200").conversation_id  # 389 000 ₽ → 12%
+    resp = send("А если скидка 3% на 3 принтера PX-L2100?", conv_id=conv)  # 50 700 ₽ → скидки нет
+    assert "не предусмотрена" in resp.messages[0].text
+    assert "12%" not in resp.messages[0].text
+
+
+def test_catalog_answer_does_not_mix_neighbour_skus(db):
+    """В ответе по конкретной модели нет «соседей» по номеру."""
+    text = send("Сколько стоит МФУ PX-M4200?").messages[0].text
+    assert "38 900" in text
+    assert "Фотобарабан" not in text and "Комплект тонеров" not in text
