@@ -216,12 +216,33 @@ class BotMessage(BaseModel):
     deterministic: bool = False  # True — шаблон без LLM
 
 
+class GuardrailNote(BaseModel):
+    """Итог одной проверки Устава при подготовке текста клиенту (для трассировки пайплайна)."""
+
+    id: str  # V1…V7
+    ok: bool = False
+    detail: str = ""
+
+
+class PipelineTrace(BaseModel):
+    """Снимок пайплайна PERCEPTION → ACTION: что увидел pre-classifier, как поняли и решили,
+    какие валидаторы сработали. Отдаётся в ответе API (сайт-фронтенд показывает это менеджеру),
+    в БД не сохраняется — источник истины остаётся в decisions/events."""
+
+    pre: PreClassification | None = None
+    und: Understanding | None = None
+    decision: Decision | None = None
+    guardrails: list[GuardrailNote] = Field(default_factory=list)
+    whitelist_size: int = 0
+
+
 class BotResponse(BaseModel):
     conversation_id: int | None = None
     messages: list[BotMessage] = Field(default_factory=list)
     card_updates: dict[str, Any] = Field(default_factory=dict)
     notifications: list[dict[str, Any]] = Field(default_factory=list)
     events: list[dict[str, Any]] = Field(default_factory=list)
+    trace: PipelineTrace | None = None
 
 
 class HandoffSummary(BaseModel):

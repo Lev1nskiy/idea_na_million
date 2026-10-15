@@ -38,6 +38,8 @@ from core.schemas import (
     ConvState,
     Decision,
     IncomingMessage,
+    PipelineTrace,
+    PreClassification,
     Policy,
     PreClassification,
     Understanding,
@@ -253,6 +255,7 @@ def _handle_injection(
         category="F", route="INJECTION", reasons=patterns[:5], policy_version=ctx.policy.version,
         state_updates={"suspicious": True, "category": top_category(ctx.state.category, "F")},
     )
+    out.trace = PipelineTrace(decision=decision)  # F: LLM не вызывалась, pre добавит оркестратор
     with session_scope() as s:
         s.add(
             m.SecurityIncident(
@@ -354,6 +357,7 @@ async def _run_pipeline(
             _handle_injection(ctx, perceived, out, ["llm_flag"], None, "llm")
             return out
         if decision.route == "SMOOTH_HOLD":
+            out.trace = PipelineTrace(und=und, decision=decision)
             _handle_dispute(ctx, perceived, out, decision, und.confidence, "llm")
             return out
 
@@ -376,6 +380,7 @@ async def _run_pipeline(
         _emit(ctx, perceived, result.messages)
         out.messages.extend(result.messages)
         out.card_updates.update(result.card_updates)
+        out.trace = result.trace  # pre/und/decision/guardrails — для панели трассировки сайта
     except Exception as exc:  # клиент не должен остаться без ответа (Ст. 9)
         logger.error("pipeline error: %s", type(exc).__name__)
         reply = BotMessage(text=templates.generic_fallback(), phase="FINAL", deterministic=True)
@@ -383,6 +388,14 @@ async def _run_pipeline(
             _log_event(s, "pipeline_error", ctx.conversation_id, {"error": type(exc).__name__})
         _emit(ctx, perceived, [reply])
         out.messages.append(reply)
+    return out
+
+
+def _trace_with_pre(out: BotResponse, pre: PreClassification) -> BotResponse:
+    """Дополняет трассировку ответа результатом pre-classifier (PERCEPTION)."""
+    trace = out.trace or PipelineTrace()
+    trace.pre = pre
+    out.trace = trace
     return out
 
 
@@ -394,20 +407,21 @@ async def process_message(msg: IncomingMessage, llm: LLMProvider | None = None) 
     text = perceived.message.text
     ctx = _open_turn(perceived)
     out = BotResponse(conversation_id=ctx.conversation_id)
+    pre = pre_classify(text)
+    trace_pre = pre  # исходный результат pre-classifier (для трассировки: инъекция могла быть вырезана)
 
     if not text:
         reply = BotMessage(text=templates.generic_fallback(), phase="FINAL", deterministic=True)
         _emit(ctx, perceived, [reply])
         out.messages.append(reply)
-        return out
+        return _trace_with_pre(out, trace_pre)
 
-    pre = pre_classify(text)
 
     # F: инъекция — шаблон мгновенно; легитимная часть (если есть) обрабатывается дальше
     if pre.risk == "F":
         _handle_injection(ctx, perceived, out, [x.removeprefix("injection:") for x in pre.markers], pre.legit_text)
         if not pre.legit_text:
-            return out
+            return _trace_with_pre(out, trace_pre)
         text = pre.legit_text
         pre = pre_classify(text)
 
@@ -415,7 +429,7 @@ async def process_message(msg: IncomingMessage, llm: LLMProvider | None = None) 
     if ctx.state.status == "HANDOFF":
         with session_scope() as s:
             _log_event(s, "handoff_silent", ctx.conversation_id, {"message_id": ctx.message_id})
-        return out
+        return _trace_with_pre(out, trace_pre)
 
     # Диалог ждёт менеджера — SMOOTH: удерживаем клиента, не оставляем без ответа (Ст. 6)
     if ctx.state.status == "HOLD":
@@ -434,13 +448,14 @@ async def process_message(msg: IncomingMessage, llm: LLMProvider | None = None) 
         with session_scope() as s:  # новые детали клиента попадают в саммари
             handoff.refresh_handoff(s, ctx.conversation_id, ctx.policy)
         out.messages.append(reply)
-        return out
+        return _trace_with_pre(out, trace_pre)
 
     # I по лексикону: мгновенный ACK без LLM
     if pre.risk == "I":
         decision = decide(pre, Understanding(), ctx.state, ctx.policy)
+        out.trace = PipelineTrace(decision=decision)
         _handle_dispute(ctx, perceived, out, decision, 1.0)
-        return out
+        return _trace_with_pre(out, trace_pre)
 
     # Остальное: LLM-часть под таймером
     task = asyncio.create_task(_run_pipeline(ctx, perceived, text, pre, provider))
@@ -450,13 +465,14 @@ async def process_message(msg: IncomingMessage, llm: LLMProvider | None = None) 
         result = await asyncio.wait_for(asyncio.shield(task), timeout=perceived.remaining_s(INTERIM_BUDGET_S))
         out.messages.extend(result.messages)
         out.card_updates.update(result.card_updates)
+        out.trace = result.trace  # pre добавит _trace_with_pre ниже (und/decision уже внутри)
     except asyncio.TimeoutError:
         interim = BotMessage(text=templates.interim_ack(), phase="INTERIM", deterministic=True)
         with session_scope() as s:
             _log_event(s, "interim_timeout", ctx.conversation_id, {})
         _emit(ctx, perceived, [interim])
         out.messages.append(interim)
-    return out
+    return _trace_with_pre(out, trace_pre)
 
 
 async def drain_background() -> None:

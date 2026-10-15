@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
 from app.frontend import mount_spa
-from app.routers import admin, clients, conversations, deals, messages, metrics, notifications, policy
+from app.routers import admin, clients, conversations, deals, messages, metrics, notifications, policy, ui_bridge
 from core import rag
 from core.config import get_settings
 from core.llm import get_llm_provider
@@ -80,6 +80,7 @@ for router in (
     notifications.router,
     metrics.router,
     admin.router,
+    ui_bridge.router,  # поверхность для сайта-фронтенда (/api/site/*)
 ):
     app.include_router(router)
 

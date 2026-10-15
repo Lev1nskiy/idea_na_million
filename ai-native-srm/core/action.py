@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from typing import Any
 
 from core import rag, templates, tools
@@ -21,6 +22,8 @@ from core.schemas import (
     BotResponse,
     ConvState,
     Decision,
+    GuardrailNote,
+    PipelineTrace,
     Policy,
     SlaInfo,
     Understanding,
@@ -58,6 +61,25 @@ def _violations(text: str, numbers: set[str], client_text: str, client_id: int, 
     )
 
 
+@dataclass
+class GenResult:
+    """Результат генерации: текст, признак шаблона, события журнала и трассировка валидаторов."""
+
+    text: str
+    deterministic: bool
+    events: list[dict[str, Any]] = field(default_factory=list)
+    guardrails: list[GuardrailNote] = field(default_factory=list)
+    whitelist_size: int = 0
+
+
+def _notes(codes: Sequence[str], details: Sequence[str]) -> list[GuardrailNote]:
+    """Пары «код проверки → причина» для трассировки (код без причины тоже показываем)."""
+    return [
+        GuardrailNote(id=code, ok=False, detail=details[i] if i < len(details) else "")
+        for i, code in enumerate(codes)
+    ]
+
+
 def _generate(
     scenario: str,
     facts: dict[str, Any],
@@ -67,11 +89,12 @@ def _generate(
     llm: LLMProvider,
     history: Sequence[tuple[str, str]],
     kb: Sequence[str] = (),
-) -> tuple[str, bool, list[dict[str, Any]]]:
-    """Генерирует и валидирует ответ. Возвращает (текст, это_шаблон, события)."""
+) -> GenResult:
+    """Генерирует и валидирует ответ: при нарушении — 1 повтор, затем детерминированный шаблон."""
     numbers = numbers_in(facts, list(kb))
     system = build_system_prompt(policy)
     events: list[dict[str, Any]] = []
+    notes: list[GuardrailNote] = []
     hint = ""
     for attempt in (1, 2):
         user = build_generation_prompt(scenario, facts, text, history, kb, hint)
@@ -86,37 +109,46 @@ def _generate(
             else []
         )
         if candidate and len(candidate) <= MAX_REPLY_LEN and not found:
-            return candidate, False, events
+            return GenResult(candidate, False, events, notes, len(numbers))
+        codes = sorted({v.code for v in found}) or ["EMPTY_OR_LONG"]
+        details = [v.detail for v in found] or ["ответ пустой или слишком длинный"]
+        notes.extend(_notes(codes, details))
         events.append(
-            {"type": "validator_block",
-             "payload": {"scenario": scenario, "attempt": attempt, "codes": sorted({v.code for v in found}) or ["EMPTY_OR_LONG"]}}
+            {"type": "validator_block", "payload": {"scenario": scenario, "attempt": attempt, "codes": codes}}
         )
         hint = "; ".join(v.hint for v in found) or "ответ пустой или слишком длинный — дай 2–4 коротких предложения"
 
     fallback = render_template(scenario, facts, kb)
     if _violations(fallback, numbers, text, client_id, policy):  # страховка: шаблон тоже под проверкой
-        events.append({"type": "validator_block", "payload": {"scenario": scenario, "attempt": 3, "codes": ["FALLBACK"]}})
+        notes.append(GuardrailNote(id="FALLBACK", ok=False, detail="шаблон тоже не прошёл проверку — отдан безопасный ответ"))
+        events.append({"type": "validator_block",
+                       "payload": {"scenario": scenario, "attempt": 3, "codes": ["FALLBACK"]}})
         fallback = templates.generic_fallback()
-    return fallback, True, events
+    return GenResult(fallback, True, events, notes, len(numbers))
 
 
-def _template_reply(text_out: str, numbers: set[str], client_text: str, client_id: int, policy: Policy) -> tuple[str, list[dict[str, Any]]]:
+def _template_reply(text_out: str, numbers: set[str], client_text: str, client_id: int, policy: Policy) -> GenResult:
     """Детерминированный шаблон тоже проходит валидаторы (Ст. 1: «каждое предложение»)."""
-    if _violations(text_out, numbers, client_text, client_id, policy):
-        return templates.generic_fallback(), [
-            {"type": "validator_block", "payload": {"scenario": "template", "attempt": 0, "codes": ["TEMPLATE"]}}
-        ]
-    return text_out, []
+    found = _violations(text_out, numbers, client_text, client_id, policy)
+    if found:
+        details = [v.detail for v in found]
+        events = [{"type": "validator_block", "payload": {"scenario": "template", "attempt": 0, "codes": ["TEMPLATE"]}}]
+        return GenResult(templates.generic_fallback(), True, events,
+                         [GuardrailNote(id="TEMPLATE", ok=False, detail="; ".join(details))], len(numbers))
+    return GenResult(text_out, True, [], [], len(numbers))
 
 
 def _response(text: str, deterministic: bool, card: dict[str, Any] | None = None,
               events: list[dict[str, Any]] | None = None,
-              notifications: list[dict[str, Any]] | None = None) -> BotResponse:
+              notifications: list[dict[str, Any]] | None = None,
+              guardrails: list[GuardrailNote] | None = None,
+              whitelist_size: int = 0) -> BotResponse:
     return BotResponse(
         messages=[BotMessage(text=text, phase="FINAL", deterministic=deterministic)],
         card_updates={k: v for k, v in (card or {}).items() if v is not None},
         notifications=notifications or [],
         events=events or [],
+        trace=PipelineTrace(guardrails=guardrails or [], whitelist_size=whitelist_size),
     )
 
 
@@ -145,11 +177,11 @@ def _discount(decision: Decision, und: Understanding, text: str, client_id: int,
         facts = tools.calc_discount(client_id, policy, **inputs)
         total = facts["order_sum"] * (1 - pct / 100) if facts["order_sum"] else None
         gen_facts = {"pct": pct, "product": facts["product"], "qty": facts["qty"], "total_with_discount": total}
-        reply, fallback, events = _generate("discount_grant", gen_facts, text, client_id, policy, llm, history)
+        gen = _generate("discount_grant", gen_facts, text, client_id, policy, llm, history)
         return _response(
-            reply, fallback,
+            gen.text, gen.deterministic,
             card={"discount_pct": pct, "product": facts["product"], "qty": facts["qty"], "stage": "negotiation"},
-            events=events,
+            events=gen.events, guardrails=gen.guardrails, whitelist_size=gen.whitelist_size,
         )
     if action == "offer_max":
         raw = templates.discount_offer(pct)
@@ -157,11 +189,12 @@ def _discount(decision: Decision, und: Understanding, text: str, client_id: int,
         raw = templates.discount_limit_confirm(pct)
     else:
         raw = templates.discount_none()
-    reply, events = _template_reply(raw, numbers_in(pct), text, client_id, policy)
+    gen = _template_reply(raw, numbers_in(pct), text, client_id, policy)
     # Позиция и количество фиксируются в карточке: на них опирается саммари для менеджера (Ст. 8)
     facts = tools.calc_discount(client_id, policy, **discount_inputs(und, text))
     card = {"product": facts["product"], "qty": facts["qty"] if facts["product"] else None, "stage": "negotiation"}
-    return _response(reply, True, card=card, events=events)
+    return _response(gen.text, True, card=card, events=gen.events,
+                     guardrails=gen.guardrails, whitelist_size=gen.whitelist_size)
 
 
 def _quote(und: Understanding, text: str, client_id: int, policy: Policy, llm: LLMProvider,
@@ -169,11 +202,11 @@ def _quote(und: Understanding, text: str, client_id: int, policy: Policy, llm: L
     quote = tools.build_quote(client_id, und.entities.people_count or 0, policy)
     if quote is None:  # decide() этого не допускает; защита от рассинхрона
         return _response(templates.generic_fallback(), True)
-    reply, fallback, events = _generate("quote", quote, text, client_id, policy, llm, history)
+    gen = _generate("quote", quote, text, client_id, policy, llm, history)
     return _response(
-        reply, fallback,
+        gen.text, gen.deterministic,
         card={"product": quote["name"], "qty": quote["people_count"], "budget": quote["total"], "stage": "quote_sent"},
-        events=events,
+        events=gen.events, guardrails=gen.guardrails, whitelist_size=gen.whitelist_size,
     )
 
 
@@ -182,23 +215,25 @@ def _warranty(und: Understanding, text: str, client_id: int, policy: Policy, llm
     e = und.entities
     facts = tools.check_warranty(client_id, policy, serial=e.serial, product=e.product or e.sku, order_id=e.order_id)
     scenario = "warranty_found" if facts["order_found"] else "warranty_collect"
-    reply, fallback, events = _generate(scenario, facts, text, client_id, policy, llm, history)
+    gen = _generate(scenario, facts, text, client_id, policy, llm, history)
     card = (
         {"product": facts["product"], "stage": "warranty_replacement", "notes": f"Замена по заказу {facts['order_id']}"}
         if facts["order_found"]
         else {"stage": "warranty_data_collection"}
     )
-    return _response(reply, fallback, card=card, events=events)
+    return _response(gen.text, gen.deterministic, card=card, events=gen.events,
+                     guardrails=gen.guardrails, whitelist_size=gen.whitelist_size)
 
 
 def _delivery(und: Understanding, text: str, client_id: int, policy: Policy, llm: LLMProvider,
               history: Sequence[tuple[str, str]]) -> BotResponse:
     facts = tools.delivery_status(client_id, policy, order_id=und.entities.order_id)
-    reply, fallback, events = _generate("delivery", facts, text, client_id, policy, llm, history)
+    gen = _generate("delivery", facts, text, client_id, policy, llm, history)
     card: dict[str, Any] = {}
     if facts.get("delay_days", 0) > 0:
         card = {"stage": "delivery_delay", "notes": f"Задержка заказа {facts['order_id']}: {facts['delay_days']} дн."}
-    return _response(reply, fallback, card=card, events=events)
+    return _response(gen.text, gen.deterministic, card=card, events=gen.events,
+                     guardrails=gen.guardrails, whitelist_size=gen.whitelist_size)
 
 
 def _knowledge(decision: Decision, und: Understanding, text: str, client_id: int, policy: Policy,
@@ -212,14 +247,16 @@ def _knowledge(decision: Decision, und: Understanding, text: str, client_id: int
     if decision.category == "E":
         if not kb:  # в базе знаний ответа нет -> «уточню и вернусь» (Ст. 5, категория E)
             return _clarify(Decision(category="E", route="AUTONOMOUS", clarify=True, clarify_kind="hold_off"))
-        reply, fallback, events = _generate("tech_answer", {"items": items[:2]}, text, client_id, policy, llm, history, kb)
-        return _response(reply, fallback, events=events)
+        gen = _generate("tech_answer", {"items": items[:2]}, text, client_id, policy, llm, history, kb)
+        return _response(gen.text, gen.deterministic, events=gen.events,
+                         guardrails=gen.guardrails, whitelist_size=gen.whitelist_size)
 
-    reply, fallback, events = _generate("catalog_answer", {"items": items[:3]}, text, client_id, policy, llm, history, kb)
+    gen = _generate("catalog_answer", {"items": items[:3]}, text, client_id, policy, llm, history, kb)
     card: dict[str, Any] = {}
     if decision.category == "B":
         card = {"product": items[0]["name"] if items else e.product, "qty": e.qty, "budget": e.budget, "stage": "inquiry"}
-    return _response(reply, fallback, card=card, events=events)
+    return _response(gen.text, gen.deterministic, card=card, events=gen.events,
+                     guardrails=gen.guardrails, whitelist_size=gen.whitelist_size)
 
 
 def execute(
@@ -233,6 +270,24 @@ def execute(
     history: Sequence[tuple[str, str]] = (),
 ) -> BotResponse:
     """Исполняет автономное решение (A–H) и возвращает ответ клиенту + побочные эффекты."""
+    resp = _dispatch(decision, und, text, client_id, conv, policy, llm, history)
+    trace = resp.trace or PipelineTrace()
+    trace.und, trace.decision = und, decision  # pre-classifier добавит оркестратор (ai_engine)
+    resp.trace = trace
+    return resp
+
+
+def _dispatch(
+    decision: Decision,
+    und: Understanding,
+    text: str,
+    client_id: int,
+    conv: ConvState,
+    policy: Policy,
+    llm: LLMProvider,
+    history: Sequence[tuple[str, str]] = (),
+) -> BotResponse:
+    """Выбор сценария ACTION по решению (без трассировки — её добавляет execute())."""
     if decision.clarify:
         return _clarify(decision)
     category = decision.category
