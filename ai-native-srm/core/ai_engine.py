@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -49,6 +50,13 @@ logger = logging.getLogger(__name__)  # только типы ошибок и с
 
 INTERIM_BUDGET_S = INTERIM_TIMEOUT_S  # модульная переменная: тесты могут её уменьшать
 HISTORY_TAIL = 6
+# Модель/SKU и количество в тексте: нужны, когда клиент не повторяет позицию в новой реплике
+# (граница C/I, roadmap п.0 №16).
+_SKU_IN_TEXT = re.compile(r"\bPX-[A-Z0-9]+(?:-[A-Z0-9]+)*\b", re.IGNORECASE)
+_QTY_IN_TEXT = re.compile(
+    r"(\d{1,4})\s*(?:шт|штук\w*|единиц\w*|принтер\w*|мфу|сканер\w*|картридж\w*|тонер\w*)",
+    re.IGNORECASE,
+)
 _STATE_FIELDS = {"status", "suspicious", "discount_offer_made", "discount_push_count", "low_conf_streak", "category"}
 _CARD_FIELDS = {"product", "qty", "budget", "discount_pct", "stage", "notes"}
 _BACKGROUND: set[asyncio.Task[Any]] = set()
@@ -282,17 +290,54 @@ def _handle_dispute(
     out.messages.append(reply)
 
 
-def _decision_inputs(ctx: TurnContext, und: Understanding, pre: PreClassification, text: str) -> tuple[float | None, bool | None]:
-    """Факты для DECISION: допустимая скидка (по Policy) и наличие шаблона КП."""
+def _remembered_order(ctx: TurnContext, und: Understanding) -> tuple[str | None, int | None, float | None]:
+    """Позиция и количество из контекста диалога: карточка сделки, затем прошлые сообщения.
+
+    Нужно для границы C/I (roadmap п.0 №16): клиент не повторяет модель в каждой реплике
+    («всё равно нужна скидка 20%»), а расчёт допустимой скидки обязан остаться тем же.
+    """
+    query = und.entities.sku or und.entities.product
+    qty, budget = und.entities.qty, und.entities.budget
+    with session_scope() as s:
+        deal = s.exec(select(m.Deal).where(m.Deal.conversation_id == ctx.conversation_id)).first()
+    if deal is not None:
+        query = query or deal.product
+        qty = qty if qty is not None else deal.qty
+        budget = budget if budget is not None else deal.budget
+    if not query or qty is None:  # ищем в прошлых репликах: «…на 10 штук PX-M4200»
+        for role, text in reversed(ctx.history):
+            if role != "client":
+                continue
+            if query is None and (match := _SKU_IN_TEXT.search(text)):
+                query = match.group(0).upper()
+            if qty is None and (qty_match := _QTY_IN_TEXT.search(text)):
+                qty = int(qty_match.group(1))
+            if query is not None and qty is not None:
+                break
+    return query, qty, budget
+
+
+def _decision_inputs(
+    ctx: TurnContext, und: Understanding, pre: PreClassification, text: str
+) -> tuple[float | None, bool | None, dict[str, Any] | None]:
+    """Факты для DECISION: допустимая скидка (по Policy), наличие шаблона КП и расчёт по заказу."""
     allowed: float | None = None
+    order: dict[str, Any] | None = None
     if "C" in und.category_candidates or pre.discount_request_pct is not None:
-        facts = tools.calc_discount(ctx.client_id, ctx.policy, **action.discount_inputs(und, text))
-        allowed = facts["allowed_pct"]
+        inputs = action.discount_inputs(und, text)
+        if not (und.entities.sku or und.entities.product):
+            # Позиция в текущем сообщении не названа — берём её из диалога.
+            query, qty, budget = _remembered_order(ctx, und)
+            inputs["query"] = query or inputs["query"]
+            inputs["qty"] = inputs["qty"] if inputs.get("qty") is not None else qty
+            inputs["budget"] = inputs["budget"] if inputs.get("budget") is not None else budget
+        order = tools.calc_discount(ctx.client_id, ctx.policy, **inputs)
+        allowed = order["allowed_pct"]
     has_template: bool | None = None
     people = und.entities.people_count
     if "D" in und.category_candidates and people is not None:
         has_template = tools.find_quote_template(ctx.client_id, people) is not None
-    return allowed, has_template
+    return allowed, has_template, order
 
 
 async def _run_pipeline(
@@ -302,7 +347,7 @@ async def _run_pipeline(
     out = BotResponse(conversation_id=ctx.conversation_id)
     try:
         und = await asyncio.to_thread(analyze, text, ctx.history, llm)
-        allowed, has_template = _decision_inputs(ctx, und, pre, text)
+        allowed, has_template, order = _decision_inputs(ctx, und, pre, text)
         decision = decide(pre, und, ctx.state, ctx.policy, allowed_pct=allowed, has_template=has_template)
 
         if decision.route == "INJECTION":  # LLM заметила манипуляцию, которую не поймал regex
@@ -317,6 +362,10 @@ async def _run_pipeline(
         result = await asyncio.to_thread(
             action.execute, decision, und, text, ctx.client_id, ctx.state, ctx.policy, llm, ctx.history
         )
+        if order is not None:  # позиция, по которой считали скидку, попадает в карточку сделки
+            for key in ("product", "qty"):
+                if order.get(key) is not None:
+                    result.card_updates.setdefault(key, order[key])
         with session_scope() as s:
             _record_decision(s, ctx, decision, und.confidence, result.messages[0].text if result.messages else "")
             _apply_card(s, ctx, result.card_updates)
