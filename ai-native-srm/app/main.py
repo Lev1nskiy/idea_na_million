@@ -12,6 +12,7 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +33,7 @@ from app.routers import (
 )
 from core import rag
 from core.config import get_settings
-from core.llm import get_llm_provider
+from core.llm import describe_llm, get_llm_provider
 from core.policy import seed_policy_if_empty
 from core.privacy import install_pii_log_filter
 from core.smooth_hold import hold_loop
@@ -101,9 +102,18 @@ for router in (
 
 
 @app.get("/api/health", tags=["service"])
-def health() -> dict[str, str]:
-    """Проверка живости для UI, Telegram-бота и деплоя."""
-    return {"status": "ok", "provider": get_llm_provider().name, "policy_version": str(_policy_version())}
+def health() -> dict[str, Any]:
+    """Проверка живости для UI, Telegram-бота и деплоя.
+
+    Отдаём и состояние LLM-цепочки: видно, отвечает облако или mock и каких переменных
+    не хватает для подключения провайдера (значения ключей, разумеется, не показываем).
+    """
+    return {
+        "status": "ok",
+        "provider": get_llm_provider().name,
+        "policy_version": str(_policy_version()),
+        **describe_llm(),
+    }
 
 
 def _policy_version() -> int:

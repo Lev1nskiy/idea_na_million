@@ -28,6 +28,7 @@ from app import models as m
 from app.adapters import site, site_metrics
 from app.db import session_scope
 from core import ai_engine, auth
+from core.llm import describe_llm
 from core import handoff as handoff_core
 from core import tools
 from core.learning import log_event
@@ -88,6 +89,9 @@ def health() -> dict[str, Any]:
         "service": "los-ai-crm",
         "db": db_state,
         "time": site.iso(utcnow()),
+        # Какая LLM отвечает клиентам и чего не хватает остальным провайдерам —
+        # ровно те же имена переменных, что и в docs/llm_setup.md. Ключей здесь нет.
+        **describe_llm(),
     }
     if degraded:
         body["degraded"] = True

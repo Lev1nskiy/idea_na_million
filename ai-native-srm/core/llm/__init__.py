@@ -1,4 +1,14 @@
-"""Фабрика LLM-провайдеров и цепочка fallback: выбранный -> другой облачный -> Mock."""
+"""Фабрика LLM-провайдеров и цепочка fallback: облако → облако → Mock.
+
+Порядок задаётся `LLM_PROVIDER`:
+
+* `auto` (по умолчанию) — сначала облако, если для него есть ключи: `gigachat`, затем `yandex`;
+* `gigachat` / `yandex` — этот провайдер первым, второй облачный остаётся следующим шагом;
+* `yandex,gigachat` — явный порядок цепочки (через запятую);
+* `mock` — только демо-движок, без обращений в сеть.
+
+Mock всегда замыкает цепочку: без него движок остался бы без ответа при недоступном облаке.
+"""
 from __future__ import annotations
 
 import logging
@@ -27,11 +37,16 @@ __all__ = [
     "LLMTimeout",
     "MockLLM",
     "build_chain",
+    "describe_llm",
     "get_llm_provider",
+    "provider_status",
 ]
 
 logger = logging.getLogger(__name__)
 _EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="llm")
+
+#: Провайдеры, которые включаются автоматически, если заданы их ключи (порядок = приоритет).
+AUTO_ORDER = ("gigachat", "yandex")
 
 
 class FallbackChain:
@@ -98,30 +113,91 @@ class FallbackChain:
 def _gigachat(s: Settings) -> LLMProvider | None:
     if not s.gigachat_credentials:
         return None
-    return GigaChatLLM(s.gigachat_credentials, s.gigachat_scope, s.gigachat_model, s.gigachat_verify_ssl)
+    return GigaChatLLM(
+        s.gigachat_credentials,
+        s.gigachat_scope,
+        s.gigachat_model,
+        s.gigachat_verify_ssl,
+        s.gigachat_ca_bundle_file,
+        s.gigachat_max_tokens,
+    )
 
 
 def _yandex(s: Settings) -> LLMProvider | None:
-    if not (s.yandex_api_key and s.yandex_folder_id):
+    if not (s.yandex_folder_id and (s.yandex_api_key or s.yandex_iam_token)):
         return None
-    return YandexGPTLLM(s.yandex_api_key, s.yandex_folder_id)
+    return YandexGPTLLM(
+        api_key=s.yandex_api_key,
+        folder_id=s.yandex_folder_id,
+        model=s.yandex_model,
+        model_uri=s.yandex_model_uri,
+        max_tokens=s.yandex_max_tokens,
+        iam_token=s.yandex_iam_token,
+        reasoning_mode=s.yandex_reasoning_mode,
+    )
+
+
+_FACTORIES: dict[str, Callable[[Settings], LLMProvider | None]] = {
+    "gigachat": _gigachat,
+    "yandex": _yandex,
+}
+
+
+def _requested(s: Settings) -> list[str]:
+    """Разбирает LLM_PROVIDER в список имён (auto → порядок по умолчанию)."""
+    names = [name.strip() for name in s.llm_provider.split(",") if name.strip()]
+    if not names or "auto" in names:
+        return list(AUTO_ORDER)
+    return names
+
+
+def _missing(s: Settings, name: str) -> list[str]:
+    """Каких переменных не хватает провайдеру — это же подсказывает и /api/health."""
+    if name == "gigachat":
+        return [] if s.gigachat_credentials else ["GIGACHAT_CREDENTIALS"]
+    if name == "yandex":
+        missing: list[str] = []
+        if not (s.yandex_api_key or s.yandex_iam_token):
+            missing.append("YANDEX_API_KEY (или YANDEX_IAM_TOKEN)")
+        if not s.yandex_folder_id:
+            missing.append("YANDEX_FOLDER_ID")
+        return missing
+    return []
+
+
+def provider_status(settings: Settings | None = None) -> list[dict[str, Any]]:
+    """Кто настроен, а кого пропустили и почему: для /api/health и scripts/llm_check.py."""
+    s = settings or get_settings()
+    status: list[dict[str, Any]] = []
+    for name in AUTO_ORDER:
+        missing = _missing(s, name)
+        status.append({"name": name, "configured": not missing, "missing": missing})
+    status.append({"name": "mock", "configured": True, "missing": []})
+    return status
 
 
 def build_chain(settings: Settings | None = None) -> FallbackChain:
-    """Цепочка по LLM_PROVIDER: выбранный -> другой облачный (если есть ключи) -> Mock."""
+    """Цепочка по LLM_PROVIDER: выбранные облачные (у кого есть ключи) → Mock."""
     s = settings or get_settings()
-    factories = {"gigachat": _gigachat, "yandex": _yandex}
-    order = [s.llm_provider] if s.llm_provider in factories else []
-    order += [name for name in factories if name not in order] if order else []
+    requested = _requested(s)
+    if requested == ["mock"]:
+        return FallbackChain([MockLLM()])
+
+    order = [name for name in requested if name in _FACTORIES]
+    unknown = [name for name in requested if name not in _FACTORIES and name != "mock"]
+    if unknown:
+        logger.warning("Неизвестный LLM_PROVIDER=%s — пропускаю", ",".join(unknown))
+    # Второй облачный провайдер остаётся в цепочке: если ключи есть у обоих, это бесплатный
+    # запас прочности, а без ключей он просто не попадёт в список ниже.
+    order += [name for name in AUTO_ORDER if name not in order]
+
     providers: list[LLMProvider] = []
     for name in order:
-        provider = factories[name](s)
+        provider = _FACTORIES[name](s)
         if provider is not None:
             providers.append(provider)
         else:
-            logger.info("Провайдер %s пропущен: не заданы ключи", name)
-    if s.llm_provider not in factories and s.llm_provider != "mock":
-        logger.warning("Неизвестный LLM_PROVIDER=%s, используется mock", s.llm_provider)
+            logger.info("Провайдер %s пропущен: не заданы %s", name, ", ".join(_missing(s, name)))
     providers.append(MockLLM())
     return FallbackChain(providers)
 
@@ -129,3 +205,14 @@ def build_chain(settings: Settings | None = None) -> FallbackChain:
 def get_llm_provider(settings: Settings | None = None) -> LLMProvider:
     """Основная точка входа: провайдер (цепочка) по текущим настройкам."""
     return build_chain(settings)
+
+
+def describe_llm(settings: Settings | None = None) -> dict[str, Any]:
+    """Сводка для health-эндпоинтов: кто отвечает и чего не хватает для остальных."""
+    return {
+        "llm": build_chain(settings).name,
+        "llm_ready": {item["name"]: item["configured"] for item in provider_status(settings)},
+        "llm_missing": {
+            item["name"]: item["missing"] for item in provider_status(settings) if item["missing"]
+        },
+    }

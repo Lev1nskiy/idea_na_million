@@ -22,6 +22,7 @@ from core import templates, tools
 from core.guardrails import numbers_in, validate_output
 from core.learning import log_event
 from core.llm import LLMError, LLMProvider
+from core.llm.base import default_timeout
 from core.policy import get_manager_sla, get_policy
 from core.prompts.generation import build_generation_prompt, render_template
 from core.prompts.system import build_system_prompt
@@ -30,7 +31,7 @@ from core.schemas import Policy, utcnow
 logger = logging.getLogger(__name__)
 
 SMOOTH_BUDGET_S = 3.0  # общий бюджет на LLM-ответ в HOLD; затем шаблон (Ст. 9: < 5 с)
-GEN_TIMEOUT_S = 2.0
+GEN_TIMEOUT_S = 2.0  # запасное значение: рабочий бюджет берётся из LLM_TIMEOUT_S
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +74,8 @@ def smooth_reply(
         user = build_generation_prompt("smooth_hold", facts, text, history, (), hint)
         try:
             candidate = llm.complete_text(
-                system, user, timeout=min(GEN_TIMEOUT_S, remaining), temperature=0.3
+                # Ограничение сверху — остаток «окна», снизу — общий бюджет модели
+                system, user, timeout=min(default_timeout(), remaining), temperature=0.3
             ).strip()
         except LLMError as exc:
             events.append({"type": "llm_error", "payload": {"stage": "smooth", "error": type(exc).__name__}})

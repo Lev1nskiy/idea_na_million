@@ -9,6 +9,17 @@ from typing import Any, Protocol, runtime_checkable
 DEFAULT_TIMEOUT_S = 2.5
 
 
+def default_timeout() -> float:
+    """Бюджет времени на вызов модели из настроек (LLM_TIMEOUT_S).
+
+    Значение читается на каждом вызове: облачная модель может не укладываться в доли секунды,
+    и тогда бюджет поднимают одной переменной окружения, не трогая код.
+    """
+    from core.config import get_settings
+
+    return get_settings().llm_timeout_s
+
+
 class LLMError(Exception):
     """Любая ошибка провайдера (сеть, авторизация, квота)."""
 
