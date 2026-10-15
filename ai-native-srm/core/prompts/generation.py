@@ -40,6 +40,14 @@ SCENARIO_GUIDE: dict[str, str] = {
         "Сообщи статус доставки и, если есть, компенсацию по политике из <facts>. "
         "Прояви сочувствие к задержке, не признавая вину."
     ),
+    "smooth_hold": (
+        "Ты удерживаешь клиента до подключения менеджера (Smooth & Hold). ОБЯЗАТЕЛЬНО: прояви эмпатию и "
+        "извинись от имени компании БЕЗ признания вины; дословно приведи фразу о сроке из facts.sla_phrase; "
+        "remedy_options упомяни только как ориентир («возможные варианты — …, окончательное решение примет "
+        "менеджер»); если клиент задал нейтральный уточняющий вопрос — ответь коротко. "
+        "ЗАПРЕЩЕНО: решать вопрос по существу, обещать конкретное решение или компенсацию, признавать вину, "
+        "спорить, называть другие сроки связи с менеджером."
+    ),
 }
 
 
@@ -173,5 +181,8 @@ def render_template(scenario: str, facts: dict[str, Any], kb_snippets: Sequence[
                 f"от суммы заказа, то есть {_money(facts['compensation_amount'])}; оформляю её."
             )
         return text
+
+    if scenario == "smooth_hold":
+        return templates.smooth_fallback(facts["sla_phrase"], facts.get("remedy_options") or [])
 
     return templates.generic_fallback()

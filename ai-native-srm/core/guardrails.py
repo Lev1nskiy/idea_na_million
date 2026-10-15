@@ -1,8 +1,8 @@
 """Guardrails Устава.
 
 Входные проверки — детектор prompt injection (Ст. 3).
-Выходные валидаторы V1–V5, V7 (Шаг 3): каждое предложение, которое LLM собирается
-отправить клиенту, обязано пройти validate_output(). V6 (Smooth & Hold) — Шаг 4.
+Выходные валидаторы V1–V7: каждое предложение, которое LLM собирается отправить клиенту,
+обязано пройти validate_output(); для режима Smooth & Hold дополнительно включается V6.
 
 Детектор работает ДО LLM, на регулярных выражениях: быстро (< 5 мс) и не зависит
 от модели. Помимо флага возвращает legit_text — исходный текст без инъекционных
@@ -203,7 +203,14 @@ class Violation:
     @property
     def hint(self) -> str:
         """Подсказка модели для повторной генерации."""
+        v6 = {
+            "no_empathy": "выскажи эмпатию и извинись от имени компании БЕЗ признания вины",
+            "no_honest_sla": "дословно включи фразу о сроке связи из facts.sla_phrase",
+            "remedy_commitment": "remedy упоминай только как ориентир, без обязательств: решение примет менеджер",
+            "arguing": "не спорь с клиентом и не доказывай правоту",
+        }
         hints = {
+            "V6": v6.get(self.detail, "соблюдай протокол Smooth & Hold"),
             "V1": f"число «{self.detail}» отсутствует в FACTS — используй только числа из FACTS",
             "V2": f"скидка {self.detail}% превышает максимум политики — используй только скидку из FACTS",
             "V3": f"запрещённая формулировка «{self.detail}» — не признавай вину и ничего не гарантируй",
@@ -280,6 +287,24 @@ _MANAGER_TIMING = [
     r"(?:свяж\w+|ответ\w+|позвон\w+|подключ\w+|перезвон\w+)[^.!?\n]{0,40}?"
     r"(?:сегодня|завтра|вечером|утром|немедленно|мгновенно|прямо\s+сейчас|сразу)",
 ]
+# V6: протокол Smooth & Hold (Ст. 6)
+_EMPATHY_RX = re.compile(
+    r"(?:понимаю|сожалею|приношу\s+извинения|извин\w+|сочувству\w+|мне\s+важно|ценю|вижу,?\s+что)", re.IGNORECASE
+)
+_REMEDY_COMMIT_RX = [
+    re.compile(p, re.IGNORECASE)
+    for p in (
+        r"\b(?:оформл\w+|предостав\w+|начисл\w+|выда\w+|сдела\w+|обеспеч\w+|верн\w+)\s+(?:вам\s+|для\s+вас\s+)?"
+        r"(?:замен\w+|скидк\w+|бонус\w*|компенсаци\w+|возврат\w*|деньги)",
+        r"\bмы\s+(?:обязательно\s+)?(?:заменим|вернём|вернем|компенсируем|предоставим|выплатим|сделаем\s+скидку)",
+        r"\bвам\s+(?:положен\w*|полагается|будет\s+(?:выплачен\w*|предоставлен\w*))",
+    )
+]
+_ARGUING_RX = re.compile(
+    r"\b(?:вы\s+(?:не\s*правы|ошибаетесь)|это\s+не\s+так|вы\s+сами\s+виноваты|неверно\s+понимаете|мы\s+не\s+обязаны)\b",
+    re.IGNORECASE,
+)
+
 _FORBIDDEN_RX = [re.compile(p, re.IGNORECASE) for p in _FORBIDDEN]
 _LEAKS_RX = [re.compile(p, re.IGNORECASE) for p in _LEAKS]
 _TIMING_RX = [re.compile(p, re.IGNORECASE) for p in _MANAGER_TIMING]
@@ -293,6 +318,7 @@ def validate_output(
     policy: Policy | None = None,
     foreign_markers: Collection[str] = (),
     sla_phrases: Collection[str] = (),
+    smooth: bool = False,
 ) -> list[Violation]:
     """Проверяет текст ответа на соответствие Уставу; пустой список — всё в порядке.
 
@@ -303,6 +329,7 @@ def validate_output(
     V4 — нет данных других клиентов.
     V5 — нет утечки служебных инструкций / эха инъекции.
     V7 — нет придуманных сроков связи с менеджером (разрешены только sla_phrases из Policy).
+    V6 — (smooth=True) есть эмпатия и точная фраза SLA из Policy; нет обязательств по remedy и споров.
     """
     violations: list[Violation] = []
 
@@ -345,5 +372,16 @@ def validate_output(
         scrubbed = scrubbed.replace(phrase, " ")
     if any(rx.search(scrubbed) for rx in _TIMING_RX):
         violations.append(Violation("V7", "manager_timing"))
+
+    # V6
+    if smooth:
+        if not _EMPATHY_RX.search(text):
+            violations.append(Violation("V6", "no_empathy"))
+        if sla_phrases and not any(phrase in text for phrase in sla_phrases):
+            violations.append(Violation("V6", "no_honest_sla"))
+        if any(rx.search(text) for rx in _REMEDY_COMMIT_RX):
+            violations.append(Violation("V6", "remedy_commitment"))
+        if _ARGUING_RX.search(text):
+            violations.append(Violation("V6", "arguing"))
 
     return violations

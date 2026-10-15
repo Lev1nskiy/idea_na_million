@@ -6,7 +6,33 @@
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from core.schemas import SlaInfo
+
+REMEDY_LABELS = {"replacement": "замена", "discount": "скидка", "bonus": "бонус"}
+
+
+def remedy_labels(options: Sequence[str]) -> list[str]:
+    """Русские названия remedy-опций из Policy (неизвестные — как есть)."""
+    return [REMEDY_LABELS.get(option, option) for option in options]
+
+
+def _join_or(items: Sequence[str]) -> str:
+    items = list(items)
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + " или " + items[-1]
+
+
+def remedy_orientation(remedies: Sequence[str]) -> str:
+    """Remedy-опции как ориентир, без обязательств (Ст. 6)."""
+    if not remedies:
+        return ""
+    return (
+        f"Как ориентир: возможные варианты решения — {_join_or(remedies)}; "
+        "окончательное решение примет менеджер."
+    )
 
 
 def _hours_phrase(hours: int) -> str:
@@ -41,15 +67,39 @@ def f_script(has_legit_part: bool = False) -> str:
     return text
 
 
-def ack_dispute(sla: SlaInfo) -> str:
+def ack_dispute(sla: SlaInfo, remedies: Sequence[str] = ()) -> str:
     """Категория I, фаза ACKNOWLEDGE (Ст. 6): признать проблему, не признавая вины."""
-    return (
-        "Я вижу, что вопрос сложный и требует участия специалиста. "
-        "Приношу извинения за доставленные неудобства — мне важно, чтобы вы остались довольны. "
-        "Я уже передал информацию менеджеру. "
-        f"{sla_phrase(sla)} "
-        "Если хотите, расскажите подробности — я зафиксирую их для менеджера."
-    )
+    parts = [
+        "Я вижу, что вопрос сложный и требует участия специалиста.",
+        "Приношу извинения за доставленные неудобства — мне важно, чтобы вы остались довольны.",
+        "Я уже передал информацию менеджеру.",
+        sla_phrase(sla),
+        remedy_orientation(remedies),
+        "Если хотите, расскажите подробности — я зафиксирую их для менеджера.",
+    ]
+    return " ".join(p for p in parts if p)
+
+
+def smooth_fallback(sla_phrase_text: str, remedies: Sequence[str] = ()) -> str:
+    """Фаза SMOOTH без LLM: эмпатия + честный срок + remedy как ориентир."""
+    parts = [
+        "Понимаю, как это важно для вас, и приношу извинения за доставленные неудобства.",
+        "Я добавил ваше сообщение к обращению — менеджер увидит его сразу.",
+        sla_phrase_text,
+        remedy_orientation(remedies),
+    ]
+    return " ".join(p for p in parts if p)
+
+
+def hold_ping(sla: SlaInfo, remedies: Sequence[str] = ()) -> str:
+    """Периодическое сообщение в фазе HOLD: клиента не оставляют в тишине (Ст. 6, 9)."""
+    parts = [
+        "Я на связи: ваше обращение передано менеджеру.",
+        sla_phrase(sla),
+        remedy_orientation(remedies),
+        "Если появятся новые детали — напишите, я добавлю их к обращению.",
+    ]
+    return " ".join(p for p in parts if p)
 
 
 def interim_ack() -> str:

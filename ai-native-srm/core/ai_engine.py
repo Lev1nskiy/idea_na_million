@@ -24,12 +24,13 @@ from sqlmodel import Session, col, select
 
 from app import models as m
 from app.db import session_scope
-from core import action, templates, tools
+from core import action, handoff, smooth_hold, templates, tools
 from core.decision import decide
+from core.learning import log_event as _log_event
 from core.llm import LLMProvider, get_llm_provider
 from core.perception import INTERIM_TIMEOUT_S, Perceived, normalize, pre_classify
-from core.policy import get_manager_sla, get_policy
-from core.privacy import mask_payload, mask_pii, text_hash
+from core.policy import get_policy
+from core.privacy import mask_pii, text_hash
 from core.schemas import (
     BotMessage,
     BotResponse,
@@ -131,24 +132,11 @@ def _history(s: Session, conversation_id: int, exclude_id: int | None) -> list[t
     return [(row.role, row.text) for row in reversed(list(s.exec(stmt).all()))]
 
 
-def _log_event(
-    s: Session, type_: str, conversation_id: int | None, payload: dict[str, Any], latency_ms: int | None = None
-) -> None:
-    s.add(m.Event(type=type_, conversation_id=conversation_id, payload=mask_payload(payload), latency_ms=latency_ms))
-
-
 def _notify(s: Session, conversation_id: int, type_: str, text: str) -> None:
-    """DISPUTE дедуплицируется: одно активное уведомление на диалог (дублирование — Шаг 4)."""
+    """Уведомление менеджеру. DISPUTE дедуплицируется и дублируется циклом HOLD (smooth_hold)."""
     if type_ == "DISPUTE":
-        stmt = select(m.Notification).where(
-            m.Notification.conversation_id == conversation_id,
-            m.Notification.type == "DISPUTE",
-            m.Notification.active == True,  # noqa: E712
-        )
-        existing = s.exec(stmt).first()
-        if existing is not None:
-            existing.last_notified_at = utcnow()
-            return
+        smooth_hold.notify_dispute(s, conversation_id, text)
+        return
     s.add(m.Notification(type=type_, conversation_id=conversation_id, text=text))
 
 
@@ -197,22 +185,27 @@ def _record_decision(s: Session, ctx: TurnContext, decision: Decision, confidenc
     )
 
 
-def _emit(ctx: TurnContext, perceived: Perceived, messages: list[BotMessage]) -> None:
-    """Сохраняет ответы ИИ в messages и outbox; фиксирует Time-to-first-response."""
+def _emit(
+    ctx: TurnContext, perceived: Perceived, messages: list[BotMessage], group: str = "other",
+    caught_by: str | None = None,
+) -> None:
+    """Сохраняет ответы ИИ в messages и outbox; фиксирует Time-to-first-response.
+
+    group: "IF" (ACK на спор/инъекцию), "hold" (ответ клиенту в HOLD) или "other" — для метрик TTFR;
+    caught_by: "pre_classifier" | "llm" — кто распознал спор/инъекцию.
+    """
     with session_scope() as s:
         for bm in messages:
             latency = perceived.elapsed_ms()
-            s.add(
-                m.Message(
-                    conversation_id=ctx.conversation_id, role="ai", text=bm.text, phase=bm.phase,
-                    deterministic=bm.deterministic, latency_ms=latency,
-                )
+            smooth_hold.store_ai_message(
+                s, ctx.conversation_id, ctx.channel, bm.text, bm.phase, bm.deterministic, latency
             )
-            s.add(m.Outbox(channel=ctx.channel, conversation_id=ctx.conversation_id, text=bm.text, phase=bm.phase))
             if not ctx.first_reply_logged:
                 _log_event(
                     s, "first_response", ctx.conversation_id,
-                    {"phase": bm.phase, "deterministic": bm.deterministic}, latency,
+                    {"phase": bm.phase, "deterministic": bm.deterministic, "group": group,
+                     "caught_by": caught_by, "message_id": ctx.message_id},
+                    latency,
                 )
                 ctx.first_reply_logged = True
 
@@ -226,7 +219,7 @@ def _open_turn(perceived: Perceived) -> TurnContext:
         s.add(row)
         s.flush()
         policy = get_policy(s)  # актуальная версия на КАЖДОЕ сообщение
-        _log_event(s, "message_received", conv.id, {"text": msg.text, "channel": msg.channel})
+        _log_event(s, "message_received", conv.id, {"text": msg.text, "channel": msg.channel, "message_id": row.id})
         return TurnContext(
             conversation_id=conv.id,  # type: ignore[arg-type]
             client_id=msg.client_id,
@@ -242,7 +235,8 @@ def _open_turn(perceived: Perceived) -> TurnContext:
 # Ветки обработки
 # ---------------------------------------------------------------------------
 def _handle_injection(
-    ctx: TurnContext, perceived: Perceived, out: BotResponse, patterns: list[str], legit_text: str | None
+    ctx: TurnContext, perceived: Perceived, out: BotResponse, patterns: list[str], legit_text: str | None,
+    caught_by: str = "pre_classifier",
 ) -> None:
     """Категория F (Ст. 3): детерминированный шаблон, инцидент, suspicious, уведомление безопасности."""
     raw = perceived.message.text
@@ -263,22 +257,28 @@ def _handle_injection(
         _notify(s, ctx.conversation_id, "SECURITY", "Попытка prompt injection: " + ", ".join(patterns[:3]))
         _apply_state(s, ctx, decision.state_updates)
         _record_decision(s, ctx, decision, 1.0, reply.text)
-        _log_event(s, "injection_detected", ctx.conversation_id, {"patterns": patterns})
-    _emit(ctx, perceived, [reply])
+        _log_event(s, "injection_detected", ctx.conversation_id, {"patterns": patterns, "caught_by": caught_by})
+    _emit(ctx, perceived, [reply], "IF", caught_by)
     out.messages.append(reply)
 
 
-def _handle_dispute(ctx: TurnContext, perceived: Perceived, out: BotResponse, decision: Decision, confidence: float) -> None:
-    """Категория I: заглушка Smooth & Hold (шаблон ACK + уведомление). Полный протокол — Шаг 4."""
-    reply = BotMessage(
-        text=templates.ack_dispute(get_manager_sla(ctx.policy)), phase="ACK", deterministic=True
-    )
+def _handle_dispute(
+    ctx: TurnContext, perceived: Perceived, out: BotResponse, decision: Decision, confidence: float,
+    caught_by: str = "pre_classifier",
+) -> None:
+    """Категория I (Ст. 6): мгновенный ACK-шаблон, статус HOLD, уведомление менеджеру, саммари."""
+    reply = BotMessage(text=smooth_hold.ack(ctx.policy), phase="ACK", deterministic=True)
     with session_scope() as s:
         _notify(s, ctx.conversation_id, "DISPUTE", "Сложный диалог: клиент ждёт менеджера")
         _apply_state(s, ctx, decision.state_updates)
+        conv = s.get(m.Conversation, ctx.conversation_id)
+        assert conv is not None
+        conv.last_ai_ping_ts = utcnow()  # отсчёт для hold-пингов клиенту
         _record_decision(s, ctx, decision, confidence, reply.text)
-        _log_event(s, "dispute_hold", ctx.conversation_id, {"reasons": decision.reasons})
-    _emit(ctx, perceived, [reply])
+        _log_event(s, "dispute_hold", ctx.conversation_id, {"reasons": decision.reasons, "caught_by": caught_by})
+    _emit(ctx, perceived, [reply], "IF", caught_by)
+    with session_scope() as s:  # саммари готовится сразу, не дожидаясь менеджера (Ст. 8)
+        handoff.refresh_handoff(s, ctx.conversation_id, ctx.policy)
     out.messages.append(reply)
 
 
@@ -306,10 +306,10 @@ async def _run_pipeline(
         decision = decide(pre, und, ctx.state, ctx.policy, allowed_pct=allowed, has_template=has_template)
 
         if decision.route == "INJECTION":  # LLM заметила манипуляцию, которую не поймал regex
-            _handle_injection(ctx, perceived, out, ["llm_flag"], None)
+            _handle_injection(ctx, perceived, out, ["llm_flag"], None, "llm")
             return out
         if decision.route == "SMOOTH_HOLD":
-            _handle_dispute(ctx, perceived, out, decision, und.confidence)
+            _handle_dispute(ctx, perceived, out, decision, und.confidence, "llm")
             return out
 
         with session_scope() as s:  # состояние (например, discount_offer_made) фиксируем до ответа
@@ -365,13 +365,25 @@ async def process_message(msg: IncomingMessage, llm: LLMProvider | None = None) 
     # Менеджер ведёт диалог — ИИ молчит (кроме обработки инъекций выше)
     if ctx.state.status == "HANDOFF":
         with session_scope() as s:
-            _log_event(s, "handoff_silent", ctx.conversation_id, {})
+            _log_event(s, "handoff_silent", ctx.conversation_id, {"message_id": ctx.message_id})
         return out
 
-    # Диалог уже ждёт менеджера — не оставляем клиента без ответа (Ст. 6)
+    # Диалог ждёт менеджера — SMOOTH: удерживаем клиента, не оставляем без ответа (Ст. 6)
     if ctx.state.status == "HOLD":
-        reply = BotMessage(text=templates.hold_update(get_manager_sla(ctx.policy)), phase="HOLD", deterministic=True)
-        _emit(ctx, perceived, [reply])
+        reply_text, deterministic, events = await asyncio.to_thread(
+            smooth_hold.smooth_reply, text, ctx.client_id, ctx.policy, provider, ctx.history
+        )
+        reply = BotMessage(text=reply_text, phase="HOLD", deterministic=deterministic)
+        with session_scope() as s:
+            conv = s.get(m.Conversation, ctx.conversation_id)
+            assert conv is not None
+            conv.last_ai_ping_ts = utcnow()  # следующий hold-пинг отсчитывается от этого ответа
+            for event in events:
+                _log_event(s, event["type"], ctx.conversation_id, event.get("payload", {}))
+            _log_event(s, "hold_reply", ctx.conversation_id, {"deterministic": deterministic})
+        _emit(ctx, perceived, [reply], "hold")
+        with session_scope() as s:  # новые детали клиента попадают в саммари
+            handoff.refresh_handoff(s, ctx.conversation_id, ctx.policy)
         out.messages.append(reply)
         return out
 

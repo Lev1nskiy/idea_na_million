@@ -37,7 +37,7 @@ def discount_inputs(und: Understanding, text: str) -> dict[str, Any]:
     return {"query": e.sku or e.product or text, "qty": e.qty, "budget": e.budget}
 
 
-def _sla_phrases(policy: Policy) -> list[str]:
+def sla_phrases(policy: Policy) -> list[str]:
     """Обе разрешённые формулировки SLA из Policy (рабочее/нерабочее время) — для валидатора V7."""
     sla = policy.manager_sla
     wh = sla.work_hours
@@ -55,7 +55,7 @@ def _violations(text: str, numbers: set[str], client_text: str, client_id: int, 
         client_text=client_text,
         policy=policy,
         foreign_markers=tools.foreign_client_markers(client_id),
-        sla_phrases=_sla_phrases(policy),
+        sla_phrases=sla_phrases(policy),
     )
 
 
@@ -159,7 +159,10 @@ def _discount(decision: Decision, und: Understanding, text: str, client_id: int,
     else:
         raw = templates.discount_none()
     reply, events = _template_reply(raw, numbers_in(pct), text, client_id, policy)
-    return _response(reply, True, card={"stage": "negotiation"}, events=events)
+    # Позиция и количество фиксируются в карточке: на них опирается саммари для менеджера (Ст. 8)
+    facts = tools.calc_discount(client_id, policy, **discount_inputs(und, text))
+    card = {"product": facts["product"], "qty": facts["qty"] if facts["product"] else None, "stage": "negotiation"}
+    return _response(reply, True, card=card, events=events)
 
 
 def _quote(und: Understanding, text: str, client_id: int, policy: Policy, llm: LLMProvider,
