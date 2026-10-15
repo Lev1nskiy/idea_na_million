@@ -100,6 +100,13 @@ export interface MetricsDto extends MetricsReport {
   decisions: (DecisionRec & { clientName: string })[];
 }
 
+export interface DataSummary {
+  tables: Record<string, number>;
+  policyVersion: number;
+  dbSizeBytes: number;
+  dbFile: string;
+}
+
 export interface SimulateResult {
   policyVersion: number;
   discount: { pct: number; reason: string };
@@ -167,6 +174,30 @@ export const api = {
   metrics: () => siteFetch(`${api.base}/api/metrics`).then((r) => j<MetricsDto>(r)),
   incidents: () => siteFetch(`${api.base}/api/security/incidents`).then((r) => j<{ incidents: SecurityIncident[] }>(r)),
   clients: () => siteFetch(`${api.base}/api/clients`).then((r) => j<{ clients: ClientOption[] }>(r)),
+
+  // --- перенос базы (страница «Данные») ---
+  // Идём через siteFetch, а не голым fetch: только он прикладывает токен предпросмотра
+  // (X-Los-Token из sessionStorage), без которого во фрейме запрос уходит анонимным и
+  // получает 401. Файлы и multipart не разбираем — отдаём Response целиком наружу.
+  dataSummary: () =>
+    siteFetch(`${api.base}/api/data/summary`, { cache: "no-store" }).then(async (r) => {
+      const raw = (await r.json()) as Record<string, unknown>;
+      return {
+        tables: (raw.tables ?? {}) as Record<string, number>,
+        policyVersion: Number(raw.policy_version ?? 0),
+        dbSizeBytes: Number(raw.db_size_bytes ?? 0),
+        dbFile: String(raw.db_file ?? ""),
+      } satisfies DataSummary;
+    }),
+  dataExport: (mask: boolean) =>
+    siteFetch(`${api.base}/api/data/export?mask=${mask ? "true" : "false"}`, { cache: "no-store" }),
+  dataBackup: () => siteFetch(`${api.base}/api/data/backup`, { cache: "no-store" }),
+  dataImport: (file: File, opts: { mode: "merge" | "replace"; dryRun: boolean }) => {
+    const form = new FormData();
+    form.append("file", file);
+    const query = new URLSearchParams({ mode: opts.mode, policy: "false", dry_run: String(opts.dryRun) });
+    return siteFetch(`${api.base}/api/data/import?${query}`, { method: "POST", body: form });
+  },
 };
 
 export type ClientOption = { id: string; name: string; contact: string; segment: string };
