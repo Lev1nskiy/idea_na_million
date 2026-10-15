@@ -1,0 +1,36 @@
+{
+  "discounts": {
+    "max_pct": 15,
+    "tiers": [
+      { "min_sum": 150000, "pct": 12 }
+    ],
+    "bundle_max_pct": 15,
+    "loyal_bonus_pct": 1,
+    "loyal_statuses": ["loyal", "vip"]
+  },
+  "warranty": {
+    "replace_hours": 24,
+    "requires_confirmed_order": true
+  },
+  "delivery_compensation": [
+    { "delay_days_gt": 2, "pct_of_sum": 5 }
+  ],
+  "remedy_options": ["replacement", "discount", "bonus"],
+  "manager_sla": {
+    "response_hours": 2,
+    "off_hours_response_hours": 12,
+    "work_hours": {
+      "start_hour": 9,
+      "end_hour": 18,
+      "days": [1, 2, 3, 4, 5],
+      "utc_offset_hours": 3
+    }
+  },
+  "thresholds": {
+    "min_confidence": 0.7,
+    "discount_push_limit": 2,
+    "negative_sentiment": -0.5,
+    "hold_ping_minutes": 10,
+    "reminder_minutes": 15
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "templates": [
+    {
+      "template_id": "office-20",
+      "name": "Офис до 20 человек",
+      "people_min": 1,
+      "people_max": 20,
+      "bundle": true,
+      "items": [
+        { "sku": "PX-M4200", "qty": 2 },
+        { "sku": "PX-L2100", "qty": 3 },
+        { "sku": "PX-T-4200", "qty": 4 },
+        { "sku": "PX-PAPER-A4", "qty": 10 },
+        { "sku": "PX-SV-BASIC", "qty": 2 }
+      ],
+      "notes": "Базовый комплект для офиса: МФУ, персональные принтеры, расходники и сервис."
+    },
+    {
+      "template_id": "office-40",
+      "name": "Офис до 40 человек",
+      "people_min": 21,
+      "people_max": 40,
+      "bundle": true,
+      "items": [
+        { "sku": "PX-M6500", "qty": 1 },
+        { "sku": "PX-M4200", "qty": 3 },
+        { "sku": "PX-L3300D", "qty": 4 },
+        { "sku": "PX-M4800C", "qty": 1 },
+        { "sku": "PX-T-4200", "qty": 8 },
+        { "sku": "PX-PAPER-A4", "qty": 20 },
+        { "sku": "PX-SV-PRO", "qty": 1 }
+      ],
+      "notes": "Расширенный комплект: A3-МФУ, сетевые принтеры, цветное МФУ, расходники и сервис с выездом."
+    }
+  ]
+}

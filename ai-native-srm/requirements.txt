@@ -1,0 +1,16 @@
+# Шаг 1 (фундамент)
+fastapi>=0.110
+# Без [standard]: его зависимость pyyaml не имеет wheel под Python 3.15 и требует компилятор C++
+uvicorn>=0.29
+sqlmodel>=0.0.16
+pydantic>=2.6
+python-dotenv>=1.0
+pytest>=8.0
+
+# Добавляются на следующих шагах (раскомментировать по мере необходимости):
+# gigachat            # Шаг 2: LLM-провайдер
+# chromadb            # Шаг 3: RAG
+# streamlit           # Шаг 5: UI
+# streamlit-autorefresh
+# requests
+# aiogram>=3          # Шаг 6: Telegram
