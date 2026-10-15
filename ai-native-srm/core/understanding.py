@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from core.llm import LLMError, LLMInvalidResponse, LLMProvider, get_llm_provider
+from core.llm.base import default_timeout
 from core.prompts.understanding import SCHEMA_HINT, build_system, build_user_prompt
 from core.schemas import CATEGORY_RANK, Entities, Understanding
 
@@ -58,7 +59,7 @@ def analyze(
     text: str,
     history_tail: Sequence[tuple[str, str]] = (),
     llm: LLMProvider | None = None,
-    timeout: float = 2.5,
+    timeout: float | None = None,
 ) -> Understanding:
     """Анализирует сообщение клиента.
 
@@ -68,6 +69,7 @@ def analyze(
     Транспортная ошибка/таймаут -> сразу fallback (без повтора, бюджет времени ограничен).
     """
     provider = llm or get_llm_provider()
+    timeout = timeout if timeout is not None else default_timeout()
     system = build_system()
     user = build_user_prompt(text, history_tail)
 

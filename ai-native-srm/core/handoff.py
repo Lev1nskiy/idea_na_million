@@ -17,6 +17,7 @@ from core import tools
 from core.guardrails import extract_numbers, numbers_in
 from core.learning import log_event
 from core.llm import LLMError, LLMProvider
+from core.llm.base import default_timeout
 from core.perception import extract_discount_pct, pre_classify
 from core.policy import get_policy
 from core.schemas import HandoffSummary, Policy, utcnow
@@ -130,7 +131,7 @@ def _llm_refine(
     )
     user = f"<dialog>\n{dialog}\n</dialog>"
     try:
-        raw = llm.complete_json(system, user, None, timeout=2.5, temperature=0.0)
+        raw = llm.complete_json(system, user, None, timeout=default_timeout(), temperature=0.0)
     except LLMError:
         return essence, demands
     new_essence = str(raw.get("dispute_essence") or "").strip()[:300]

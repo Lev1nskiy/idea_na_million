@@ -11,8 +11,9 @@ pytest>=8.0
 python-multipart>=0.0.9
 httpx>=0.27                # тесты админ-API через fastapi.TestClient
 
-# Добавляются на следующих шагах (раскомментировать по мере необходимости):
-# gigachat            # Шаг 2: LLM-провайдер
+# Опционально: облачные LLM (GigaChat). Ставится по желанию: pip install -r requirements-llm.txt
+# YandexGPT внешних пакетов не требует — он ходит в REST через stdlib.
+# Без пакета движок работает на mock, а GigaChat в цепочке сообщает, что SDK не установлен.
 # chromadb            # Шаг 3: RAG
 # Шаг 5: UI и обёртка над API
 streamlit>=1.32

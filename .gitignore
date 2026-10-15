@@ -44,3 +44,4 @@ out/
 .DS_Store
 Thumbs.db
 *.swp
+frnt/package-lock.json

@@ -15,6 +15,7 @@ from typing import Any
 from core import rag, templates, tools
 from core.guardrails import numbers_in, validate_output
 from core.llm import LLMError, LLMProvider
+from core.llm.base import default_timeout
 from core.prompts.generation import build_generation_prompt, render_template
 from core.prompts.system import build_system_prompt
 from core.schemas import (
@@ -29,7 +30,7 @@ from core.schemas import (
     Understanding,
 )
 
-GEN_TIMEOUT_S = 2.5
+GEN_TIMEOUT_S = 2.5  # запасное значение: рабочий бюджет берётся из LLM_TIMEOUT_S
 MAX_REPLY_LEN = 1200
 
 
@@ -99,7 +100,9 @@ def _generate(
     for attempt in (1, 2):
         user = build_generation_prompt(scenario, facts, text, history, kb, hint)
         try:
-            candidate = llm.complete_text(system, user, timeout=GEN_TIMEOUT_S, temperature=0.2).strip()
+            candidate = llm.complete_text(
+                system, user, timeout=default_timeout(), temperature=0.2
+            ).strip()
         except LLMError as exc:
             events.append({"type": "llm_error", "payload": {"stage": "generation", "error": type(exc).__name__}})
             break

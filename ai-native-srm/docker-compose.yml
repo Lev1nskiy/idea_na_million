@@ -3,7 +3,12 @@
 # С ботом: docker compose --profile bot up --build   (нужен TG_BOT_TOKEN в .env)
 services:
   api:
-    build: .
+    # WITH_LLM=1 добавляет в образ SDK GigaChat (см. docs/llm_setup.md).
+    # Остальные переменные LLM_*/GIGACHAT_*/YANDEX_* приходят из .env через env_file.
+    build:
+      context: .
+      args:
+        WITH_LLM: "${WITH_LLM:-0}"
     image: ai-native-crm:latest
     command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
     env_file: .env

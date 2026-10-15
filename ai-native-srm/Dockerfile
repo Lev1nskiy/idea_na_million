@@ -11,8 +11,11 @@ WORKDIR /app
 
 # Сначала зависимости — слой кэшируется и не пересобирается при правках кода.
 # Зависимости фиксируем версиями из requirements.txt (без aiogram-мусора на этапе API).
-COPY requirements.txt ./
+COPY requirements.txt requirements-llm.txt ./
 RUN pip install --upgrade pip && pip install -r requirements.txt
+# Облачные LLM (GigaChat) — по желанию: docker build --build-arg WITH_LLM=1 .
+ARG WITH_LLM=0
+RUN if [ "$WITH_LLM" = "1" ]; then pip install -r requirements-llm.txt; fi
 
 COPY . .
 

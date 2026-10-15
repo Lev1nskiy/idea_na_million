@@ -18,7 +18,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-Copy-Item .env.example .env          # LLM_PROVIDER=mock по умолчанию — ключи не нужны
+Copy-Item .env.example .env          # LLM_PROVIDER=auto: без ключей работает mock, ключи не нужны
 python scripts\seed_demo.py          # 6 клиентов, их заказы и Policy Matrix v1
 
 python -m uvicorn app.main:app --port 8000     # API + Swagger на http://localhost:8000/docs
@@ -33,11 +33,40 @@ python -m streamlit run ui\Home.py             # демо-стенд на http:/
 # .env: TG_BOT_TOKEN=<токен от @BotFather>, TG_MANAGER_CHAT_ID=<id менеджера>
 python -m channels.telegram_bot --check     # проверяет окружение без запуска бота
 python -m channels.telegram_bot             # клиентский чат + уведомления менеджеру
+python -m channels.telegram_lead_bot --check # бот-анкета: настройки и доступность API
+python -m channels.telegram_lead_bot         # бот-анкета: заявка → карточка клиента
 python scripts\bind_telegram.py --list      # кто из клиентов привязан к Telegram
 ```
 
 Бот — тонкий адаптер: он только доставляет сообщения в `/api/messages` и показывает ответы
 из `/api/outbox`. Вся логика остаётся в `core/`, поэтому бот не «знает» ни про скидки, ни про политику.
+
+### Облачные LLM: GigaChat и YandexGPT (необязательно)
+
+Цепочка провайдеров: **GigaChat → YandexGPT → Local → Mock**. Модель формулирует текст, числа и решения
+считает код — поэтому подключение LLM не меняет поведение движка, только качество речи. Без ключей
+система полностью работоспособна на mock, а ключи включают облако с первого же запроса:
+
+```powershell
+pip install -r requirements-llm.txt      # SDK GigaChat (YandexGPT работает без пакетов)
+python scripts\llm_check.py             # проверить ключи, задержку и модели за минуту
+```
+
+```dotenv
+LLM_PROVIDER=auto                        # или gigachat | yandex | gigachat,yandex — явный порядок
+GIGACHAT_CREDENTIALS=<ключ авторизации>  # личный кабинет GigaChat API
+YANDEX_API_KEY=<API-ключ>                # сервисный аккаунт с ролью ai.languageModels.user
+YANDEX_FOLDER_ID=<каталог>
+```
+
+**Бесплатный вариант** — локальная модель с открытыми весами (GigaChat-20B-A3B под MIT,
+GigaChat 3 Lightning, YandexGPT-5-Lite-8B): `LOCAL_MODEL=<модель>` и запущенный Ollama, никаких
+ключей и лимитов, персональные данные не покидают машину.
+
+Полная инструкция — где брать ключи, как поставить сертификат НУЦ Минцифры, что значит каждая
+переменная, команды для локального запуска и что делать при 401/403/429 — в
+**[docs/llm_setup.md](docs/llm_setup.md)**.
+Состояние цепочки видно в `/api/health` (`llm`, `llm_ready`, `llm_missing`).
 
 ### Подключение внешнего фронтенда (сайт на React/Vue/статике)
 
@@ -80,11 +109,12 @@ docker compose run --rm backup              # снимок БД с ротаци�
 core/       логика: perception → understanding → decision → action → guardrails → learning
            (policy, tools, smooth_hold, handoff, templates, guardrails, privacy, rag, llm/*)
 app/        FastAPI: /api/messages, conversations, deals, clients, policy, metrics, admin
-channels/   адаптеры транспорта: telegram_bot (aiogram 3), email_imap (заглушка)
+channels/   адаптеры транспорта: telegram_bot (aiogram 3), telegram_lead_bot,
+            lead_flow (анкета без aiogram), email_imap (заглушка)
 ui/         Streamlit-стенд: чат клиента, дашборд менеджера, политика, метрики безопасности
 scripts/    seed_demo, export_state, import_state, db_backup, bind_telegram, chat_cli
 data/       каталог, клиенты и заказы, шаблоны КП, база знаний, Устав, policy_seed
-docs/       architecture.md, llm_choice.md, pitch.md, api.md, data_transfer.md
+docs/       architecture.md, llm_choice.md, pitch.md, api.md, data_transfer.md, lead_bot.md
 frontend-kit/ openapi.json + api-client.ts (TS) для подключения внешнего сайта
 ```
 
@@ -94,7 +124,7 @@ FastAPI, Streamlit и Telegram — его можно запускать из CLI
 ## Тесты
 
 ```powershell
-python -m pytest -q                  # 262 теста, сеть не нужна (LLM_PROVIDER=mock)
+python -m pytest -q                  # 399 тестов, сеть не нужна (провайдеры подменяются)
 python -m pytest tests\test_scenarios.py -q -v
 ```
 
@@ -112,17 +142,19 @@ python -m channels.telegram_bot --check                                  # бо�
 ## Документация
 
 * `docs/architecture.md` — слои, путь сообщения, **таблица «Статья Устава → механизм в коде»**, деплой.
+* `docs/llm_setup.md` — **подключение GigaChat и YandexGPT**: ключи, scope, сертификат, диагностика.
 * `docs/llm_choice.md` — сравнение провайдеров, стратегия промптов, план бенчмарка.
 * `docs/pitch.md` — проблема, решение, сценарий демо, экономика, честные допущения.
 * `docs/api.md` — все эндпоинты и порядок показа демо.
-* `docs/data_transfer.md` — перенос состояния между контурами.
+* `docs/data_transfer.md` — перенос состояния между контурами (CLI, admin-API, кнопки на странице «Данные»).
+* `docs/lead_bot.md` — Telegram-бот-анкета: заявка → карточка клиента.
 
 ## Состояние проекта
 
 | Шаг | Что | Статус |
 |---|---|---|
 | 1 | фундамент: модели, БД, каталог, CLI | готов |
-| 2 | LLM-слой: mock / GigaChat / YandexGPT + fallback | готов |
+| 2 | LLM-слой: mock / GigaChat / YandexGPT + fallback (подключение облака — `docs/llm_setup.md`) | готов |
 | 3 | guardrails, RAG, метрики | готов |
 | 4 | Smooth & Hold, handoff, шаблоны | готов |
 | 5 | FastAPI + Streamlit-стенд + перенос данных | готов |

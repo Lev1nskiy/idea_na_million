@@ -17,6 +17,8 @@ const BACKEND = (process.env.CRM_BACKEND_URL ?? "").replace(/\/+$/, "");
 export const backendConfigured = BACKEND.length > 0;
 
 const TIMEOUT_MS = Number(process.env.CRM_BACKEND_TIMEOUT_MS ?? "3000");
+// Перенос данных — не интерактивный запрос: дамп на 50 МБ грузится дольше трёх секунд.
+const TRANSFER_TIMEOUT_MS = Number(process.env.CRM_BACKEND_TRANSFER_TIMEOUT_MS ?? "60000");
 
 /**
  * Проксирует запрос в бэкенд. `null` означает «работай на mock-фоллбеке»:
@@ -57,4 +59,28 @@ export async function backendHealth(): Promise<{ ok: boolean; detail: string } |
   const proxied = await proxySite("/health");
   if (!proxied) return null;
   return { ok: proxied.ok, detail: "los-ai-crm" };
+}
+
+/**
+ * Прокси для файлов и загрузок (страница «Данные»): тело и заголовки бэкенда отдаются как есть.
+ *
+ * Отличия от proxySite: не подставляем Content-Type (для multipart его должен выставить сам
+ * fetch — иначе потеряется boundary), не глотаем 5xx и ошибки (пустая выгрузка хуже честной
+ * ошибки), и даём больше времени на большой дамп. `null` — бэкенд не подключён.
+ */
+export async function proxySiteRaw(path: string, init?: RequestInit): Promise<Response | null> {
+  if (!backendConfigured) return null;
+  try {
+    const token = await sessionToken();
+    const headers = new Headers(init?.headers ?? {});
+    if (token) headers.set("X-Auth-Token", token);
+    return await fetch(`${BACKEND}/api/site${path}`, {
+      ...init,
+      cache: "no-store",
+      headers,
+      signal: AbortSignal.timeout(TRANSFER_TIMEOUT_MS),
+    });
+  } catch {
+    return null;
+  }
 }
