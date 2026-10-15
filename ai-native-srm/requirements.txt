@@ -14,7 +14,8 @@ httpx>=0.27                # тесты админ-API через fastapi.TestCl
 # Добавляются на следующих шагах (раскомментировать по мере необходимости):
 # gigachat            # Шаг 2: LLM-провайдер
 # chromadb            # Шаг 3: RAG
-# streamlit           # Шаг 5: UI
-# streamlit-autorefresh
-# requests
+# Шаг 5: UI и обёртка над API
+streamlit>=1.32
+streamlit-autorefresh>=1.0
+requests>=2.31
 # aiogram>=3          # Шаг 6: Telegram
