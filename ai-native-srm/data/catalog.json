@@ -1,0 +1,173 @@
+{
+  "currency": "RUB",
+  "items": [
+    {
+      "sku": "PX-M4200",
+      "name": "МФУ лазерное Printex M4200",
+      "category": "mfu",
+      "price": 38900,
+      "stock": 12,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": { "format": "A4", "color": false, "print_speed_ppm": 40, "functions": ["печать", "копирование", "сканирование"], "duplex": true, "network": true },
+      "compat": ["Windows 10/11", "macOS", "Linux", "1С:Предприятие 8"],
+      "description": "Чёрно-белое лазерное МФУ для небольшого офиса."
+    },
+    {
+      "sku": "PX-M4800C",
+      "name": "МФУ цветное лазерное Printex M4800C",
+      "category": "mfu",
+      "price": 74900,
+      "stock": 5,
+      "lead_time_days": 2,
+      "warranty_months": 12,
+      "specs": { "format": "A4", "color": true, "print_speed_ppm": 30, "functions": ["печать", "копирование", "сканирование", "факс"], "duplex": true, "network": true },
+      "compat": ["Windows 10/11", "macOS", "Linux", "1С:Предприятие 8"],
+      "description": "Цветное лазерное МФУ с факсом для отделов продаж и бухгалтерии."
+    },
+    {
+      "sku": "PX-M6500",
+      "name": "МФУ лазерное A3 Printex M6500",
+      "category": "mfu",
+      "price": 129900,
+      "stock": 2,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "specs": { "format": "A3", "color": false, "print_speed_ppm": 55, "functions": ["печать", "копирование", "сканирование"], "duplex": true, "network": true },
+      "compat": ["Windows 10/11", "macOS", "Linux", "1С:Предприятие 8"],
+      "description": "Производительное чёрно-белое МФУ формата A3 для средних и больших офисов."
+    },
+    {
+      "sku": "PX-L2100",
+      "name": "Принтер лазерный Printex L2100",
+      "category": "printer",
+      "price": 16900,
+      "stock": 25,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": { "format": "A4", "color": false, "print_speed_ppm": 30, "duplex": false, "network": false },
+      "compat": ["Windows 10/11", "macOS"],
+      "description": "Компактный монохромный принтер для рабочего места."
+    },
+    {
+      "sku": "PX-L3300D",
+      "name": "Принтер лазерный сетевой Printex L3300D",
+      "category": "printer",
+      "price": 24900,
+      "stock": 14,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": { "format": "A4", "color": false, "print_speed_ppm": 38, "duplex": true, "network": true },
+      "compat": ["Windows 10/11", "macOS", "Linux", "1С:Предприятие 8"],
+      "description": "Сетевой принтер с автоматической двусторонней печатью."
+    },
+    {
+      "sku": "PX-C5200",
+      "name": "Принтер цветной лазерный Printex C5200",
+      "category": "printer",
+      "price": 41900,
+      "stock": 0,
+      "lead_time_days": 7,
+      "warranty_months": 12,
+      "specs": { "format": "A4", "color": true, "print_speed_ppm": 26, "duplex": true, "network": true },
+      "compat": ["Windows 10/11", "macOS", "Linux"],
+      "description": "Цветной сетевой лазерный принтер. Под заказ."
+    },
+    {
+      "sku": "PX-I800",
+      "name": "МФУ струйное с СНПЧ Printex I800",
+      "category": "mfu",
+      "price": 21900,
+      "stock": 9,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": { "format": "A4", "color": true, "print_speed_ppm": 15, "functions": ["печать", "копирование", "сканирование"], "duplex": false, "network": true },
+      "compat": ["Windows 10/11", "macOS"],
+      "description": "Цветное струйное МФУ с системой непрерывной подачи чернил."
+    },
+    {
+      "sku": "PX-T-4200",
+      "name": "Тонер-картридж Printex T-4200 (ресурс 10 000 стр.)",
+      "category": "consumable",
+      "price": 6900,
+      "stock": 80,
+      "lead_time_days": 1,
+      "warranty_months": 6,
+      "specs": { "yield_pages": 10000, "for": ["PX-M4200", "PX-L3300D"] },
+      "compat": [],
+      "description": "Оригинальный чёрный тонер-картридж."
+    },
+    {
+      "sku": "PX-T-4800K",
+      "name": "Комплект тонеров Printex T-4800 CMYK",
+      "category": "consumable",
+      "price": 28900,
+      "stock": 7,
+      "lead_time_days": 2,
+      "warranty_months": 6,
+      "specs": { "yield_pages": 6000, "for": ["PX-M4800C", "PX-C5200"] },
+      "compat": [],
+      "description": "Четыре цветных тонера для PX-M4800C и PX-C5200."
+    },
+    {
+      "sku": "PX-D-4200",
+      "name": "Фотобарабан Printex D-4200",
+      "category": "consumable",
+      "price": 9500,
+      "stock": 15,
+      "lead_time_days": 1,
+      "warranty_months": 6,
+      "specs": { "yield_pages": 50000, "for": ["PX-M4200"] },
+      "compat": [],
+      "description": "Фотобарабан для PX-M4200."
+    },
+    {
+      "sku": "PX-SC30",
+      "name": "Сканер документный протяжной Printex SC30",
+      "category": "scanner",
+      "price": 32500,
+      "stock": 6,
+      "lead_time_days": 2,
+      "warranty_months": 12,
+      "specs": { "format": "A4", "duplex": true, "speed_ppm": 30 },
+      "compat": ["Windows 10/11", "macOS", "1С:Предприятие 8"],
+      "description": "Протяжной сканер для документооборота."
+    },
+    {
+      "sku": "PX-SV-BASIC",
+      "name": "Сервисное обслуживание Basic (1 устройство, 12 месяцев)",
+      "category": "service",
+      "price": 12000,
+      "stock": null,
+      "lead_time_days": 1,
+      "warranty_months": 0,
+      "specs": { "visits": "по заявке", "remote_support": true },
+      "compat": [],
+      "description": "Удалённая поддержка и плановое обслуживание одного устройства."
+    },
+    {
+      "sku": "PX-SV-PRO",
+      "name": "Сервисное обслуживание Pro (выезд и подменный фонд)",
+      "category": "service",
+      "price": 24000,
+      "stock": null,
+      "lead_time_days": 1,
+      "warranty_months": 0,
+      "specs": { "visits": "выезд инженера", "loaner_device": true, "remote_support": true },
+      "compat": [],
+      "description": "Выезд инженера, подменное устройство на время ремонта."
+    },
+    {
+      "sku": "PX-PAPER-A4",
+      "name": "Бумага офисная A4 80 г/м² (коробка, 5 пачек по 500 листов)",
+      "category": "consumable",
+      "price": 1450,
+      "stock": 400,
+      "lead_time_days": 1,
+      "warranty_months": 0,
+      "specs": { "format": "A4", "density_gsm": 80, "sheets_per_pack": 500, "packs_per_box": 5 },
+      "compat": [],
+      "description": "Офисная бумага для лазерной и струйной печати."
+    }
+  ]
+}
