@@ -1,4 +1,5 @@
 import { proxySite } from "@/server/backend";
+import { mockAdminGuard } from "@/server/users";
 import { calcAllowedDiscount, calcDeliveryCompensation, getManagerSla } from "@/lib/policy";
 import { store } from "@/server/store";
 
@@ -12,6 +13,9 @@ export async function POST(req: Request) {
   // На бэкенде расчёт идёт теми же функциями, что и в пайплайне (core/policy.py).
   const proxied = await proxySite("/policy/simulate", { method: "POST", body: raw });
   if (proxied) return proxied;
+
+  const denied = await mockAdminGuard(); // симулятор раскрывает матрицу — тоже админская зона
+  if (denied) return denied;
 
   const p = store().policy;
   const discount = calcAllowedDiscount(p, {

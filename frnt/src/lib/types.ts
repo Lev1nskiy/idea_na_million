@@ -7,6 +7,19 @@ export type ConvStatus = "ACTIVE" | "HOLD" | "HANDOFF" | "RESOLVED";
 export type Channel = "web" | "telegram";
 export type Route = "AUTONOMOUS" | "SMOOTH_HOLD" | "INJECTION";
 
+// --- Сотрудники и роли ---
+export type Role = "admin" | "manager";
+
+export interface SiteUser {
+  id: string;
+  login: string;
+  name: string;
+  role: Role;
+  isActive: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
 // --- Policy Matrix (ТЗ v5, п. 4.1) ---
 
 export interface DiscountTier {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   ArrowRight, BrainCircuit, ClipboardCheck, Eye, FileText, Gauge, Inbox, Route,
-  ShieldCheck, SlidersHorizontal, Sparkles, Wrench,
+  SlidersHorizontal, Wrench,
 } from "lucide-react";
 import { usePolling } from "@/lib/hooks";
 import { api, type MetricsDto } from "@/lib/api";
@@ -42,24 +42,9 @@ export default function HomePage() {
     <div className="relative">
       <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      {/* HERO */}
-      <section className="relative mx-auto max-w-6xl pt-8 md:pt-14">
-        <div className="flex flex-wrap items-center gap-2">
-          <Chip tone="acc"><Sparkles size={11} /> Хакатон · MVP v5 · Policy Matrix</Chip>
-          <Chip tone="mint"><ShieldCheck size={11} /> Устав исполняется кодом, а не промптом</Chip>
-        </div>
-        <motion.h1
-          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-          className="font-display mt-6 max-w-4xl text-[30px] font-semibold leading-[1.12] tracking-tight md:text-[52px]"
-        >
-          ИИ, который <span className="grad-text">продаёт по политике</span> и гасит конфликты за&nbsp;миллисекунды.
-        </motion.h1>
-        <p className="mt-4 max-w-2xl text-[14px] leading-relaxed text-dim">
-          Пятислойный пайплайн: восприятие → понимание → решение → действие → обучение.
-          LLM отвечает только за язык — цифры, скидки и SLA рождаются в детерминированном коде
-          из версионируемой Policy Matrix.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
+      {/* Рабочая сводка: сразу цифры и переходы, без заголовочного текста */}
+      <section className="relative mx-auto max-w-6xl pt-6 md:pt-10">
+        <div className="flex flex-wrap gap-3">
           <Link href="/chat"><Btn className="px-5 py-2.5 text-[13px]">Чат клиента <ArrowRight size={14} /></Btn></Link>
           <Link href="/dashboard"><Btn tone="ghost" className="px-5 py-2.5 text-[13px]"><Inbox size={14} /> Дашборд менеджера</Btn></Link>
           <Link href="/policy"><Btn tone="ghost" className="px-5 py-2.5 text-[13px]"><SlidersHorizontal size={14} /> Policy Admin</Btn></Link>

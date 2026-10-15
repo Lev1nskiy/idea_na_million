@@ -286,11 +286,11 @@ function buildSeed(): State {
 
 // --- Singleton поверх globalThis (переживает HMR и раздельные инстансы route-модулей) ---
 
-const g = globalThis as unknown as { __SYNAPSE_STATE__?: State; __SYNAPSE_SEQ__?: number };
+const g = globalThis as unknown as { __LOS_STATE__?: State; __LOS_SEQ__?: number };
 
 export function store(): State {
-  if (!g.__SYNAPSE_STATE__) g.__SYNAPSE_STATE__ = buildSeed();
-  return g.__SYNAPSE_STATE__;
+  if (!g.__LOS_STATE__) g.__LOS_STATE__ = buildSeed();
+  return g.__LOS_STATE__;
 }
 
 export function nextId(prefix: string): string {
@@ -299,7 +299,7 @@ export function nextId(prefix: string): string {
 }
 
 export function resetDemo(): void {
-  g.__SYNAPSE_STATE__ = buildSeed();
+  g.__LOS_STATE__ = buildSeed();
 }
 
 // --- общие селекторы ---

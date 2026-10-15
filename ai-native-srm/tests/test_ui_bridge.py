@@ -17,9 +17,26 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
 
 
+def login(client: TestClient, login_value: str, password: str) -> str:
+    """Вход сотрудника: интерфейс так же получает токен и держит его в httpOnly-cookie."""
+    resp = client.post("/api/site/auth/login", json={"login": login_value, "password": password})
+    assert resp.status_code == 200, resp.text
+    return resp.json()["token"]
+
+
 @pytest.fixture()
 def api(db):
+    """Администратор: у него доступны и данные, и политика, и управление сотрудниками."""
     with TestClient(app) as client:
+        client.headers.update({"X-Auth-Token": login(client, "admin", "admin")})
+        yield client
+
+
+@pytest.fixture()
+def manager_api(db):
+    """Обычный сотрудник: данные видит, политику — нет."""
+    with TestClient(app) as client:
+        client.headers.update({"X-Auth-Token": login(client, "manager", "manager")})
         yield client
 
 
@@ -33,6 +50,40 @@ def post(api: TestClient, path: str, json: dict | None = None) -> object:
     resp = api.post(f"/api/site{path}", json=json)
     assert resp.status_code == 200, resp.text
     return resp.json()
+
+
+# ---------------------------------------------------------------------------
+# Доступ: без входа — 401, менеджеру — данные можно, политику нельзя
+# ---------------------------------------------------------------------------
+def test_site_surface_requires_login(db):
+    """Вся поверхность сайта закрыта, кроме health: демо-данные не отдаются анонимно."""
+    with TestClient(app) as client:
+        assert client.get("/api/site/health").status_code == 200
+        for path in ("/api/site/conversations", "/api/site/clients", "/api/site/metrics", "/api/site/policy"):
+            assert client.get(path).status_code == 401, path
+        assert client.post("/api/site/messages", json={"client_id": "C-1001", "text": "привет"}).status_code == 401
+
+
+def test_manager_sees_data_but_not_policy(manager_api):
+    """Менеджер работает с диалогами, а политика и сотрудники — только у администратора."""
+    assert get(manager_api, "/conversations")["conversations"] is not None
+    assert get(manager_api, "/security/incidents")["incidents"] is not None
+    assert manager_api.get("/api/site/policy").status_code == 403
+    assert manager_api.put("/api/site/policy", json={}).status_code == 403
+    assert manager_api.get("/api/site/policy/history").status_code == 403
+    assert manager_api.post("/api/site/policy/simulate", json={"sum": 100_000, "qty": 1}).status_code == 403
+    assert manager_api.get("/api/site/users").status_code == 403
+    assert manager_api.post("/api/site/demo/reset").status_code == 403
+
+
+def test_login_opens_session_and_logout_closes_it(db):
+    """Выход отзывает сессию: тот же токен больше ничего не открывает."""
+    with TestClient(app) as client:
+        token = login(client, "manager", "manager")
+        client.headers.update({"X-Auth-Token": token})
+        assert client.get("/api/site/conversations").status_code == 200
+        assert post(client, "/auth/logout")["ok"] is True
+        assert client.get("/api/site/conversations").status_code == 401
 
 
 # ---------------------------------------------------------------------------

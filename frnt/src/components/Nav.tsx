@@ -1,51 +1,90 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Activity, BrainCircuit, LayoutGrid, MessagesSquare, RotateCcw, ShieldAlert, SlidersHorizontal,
+  Activity, BrainCircuit, LayoutGrid, LogOut, MessagesSquare, RotateCcw, ShieldAlert,
+  SlidersHorizontal, Users,
 } from "lucide-react";
+import { api } from "@/lib/api";
+import type { SiteUser } from "@/lib/types";
 
-const ITEMS = [
+const BASE_ITEMS = [
   { href: "/", label: "Обзор", icon: LayoutGrid },
   { href: "/chat", label: "Чат клиента", icon: MessagesSquare },
   { href: "/dashboard", label: "Дашборд менеджера", icon: BrainCircuit },
-  { href: "/policy", label: "Политика", icon: SlidersHorizontal },
   { href: "/metrics", label: "Безопасность · метрики", icon: Activity },
+];
+
+const ADMIN_ITEMS = [
+  { href: "/policy", label: "Политика", icon: SlidersHorizontal },
+  { href: "/team", label: "Сотрудники", icon: Users },
 ];
 
 interface NotificationDto { id: string; active: boolean; read: boolean; }
 
+const ROLE_LABEL: Record<string, string> = { admin: "администратор", manager: "менеджер" };
+
 export function Nav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<SiteUser | null>(null);
   const [unread, setUnread] = useState(0);
   const [policyVersion, setPolicyVersion] = useState<number | null>(null);
   const [resetting, setResetting] = useState(false);
 
+  // На экране входа сайдбар не нужен — он и не должен показывать рабочие разделы.
+  const onLoginPage = pathname === "/login";
+
+  const logout = useCallback(async () => {
+    try {
+      await api.logout();
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  }, [router]);
+
   useEffect(() => {
+    if (onLoginPage) return;
+    let alive = true;
+    api.me()
+      .then(({ user: me }) => { if (alive) setUser(me); })
+      .catch(() => { if (alive) router.replace(`/login?next=${encodeURIComponent(pathname)}`); });
+    return () => { alive = false; };
+  }, [onLoginPage, pathname, router]);
+
+  useEffect(() => {
+    if (onLoginPage) return;
     let alive = true;
     const load = async () => {
       try {
-        const [n, p] = await Promise.all([
-          fetch("/api/notifications").then((r) => r.json()),
-          fetch("/api/policy").then((r) => r.json()),
-        ]);
+        const n = await api.notifications();
         if (!alive) return;
-        setUnread((n.notifications as NotificationDto[]).filter((x) => x.active && !x.read).length);
-        setPolicyVersion(p.policy.version);
-      } catch { /* сеть недоступна — пропускаем тик */ }
+        setUnread(n.notifications.filter((x) => x.active && !x.read).length);
+      } catch { /* нет сети или нет сессии — пропускаем тик */ }
+      if (user?.role === "admin") {
+        try {
+          const { policy } = await api.policy();
+          if (alive) setPolicyVersion(policy.version);
+        } catch { /* политика недоступна — не показываем версию */ }
+      }
     };
     void load();
     const t = setInterval(load, 4000);
     return () => { alive = false; clearInterval(t); };
-  }, []);
+  }, [onLoginPage, user?.role]);
 
   const reset = async () => {
     setResetting(true);
     await fetch("/api/demo/reset", { method: "POST" });
     window.location.reload();
   };
+
+  if (onLoginPage) return null;
+
+  const items = user?.role === "admin" ? [...BASE_ITEMS, ...ADMIN_ITEMS] : BASE_ITEMS;
 
   return (
     <aside className="sticky top-0 z-40 hidden h-screen w-[248px] shrink-0 flex-col border-r border-edge bg-panel/70 backdrop-blur-xl md:flex">
@@ -54,13 +93,13 @@ export function Nav() {
           <BrainCircuit size={20} strokeWidth={1.8} />
         </div>
         <div>
-          <div className="font-display text-[15px] font-semibold tracking-wide">СИНАПС</div>
+          <div className="font-display text-[15px] font-semibold tracking-wide">ЛОСЬ</div>
           <div className="text-[10px] uppercase tracking-[0.22em] text-dim">ai-native crm</div>
         </div>
       </Link>
 
       <nav className="flex-1 space-y-1 px-3">
-        {ITEMS.map((it) => {
+        {items.map((it) => {
           const active = pathname === it.href;
           const Icon = it.icon;
           return (
@@ -86,18 +125,41 @@ export function Nav() {
       </nav>
 
       <div className="space-y-2.5 border-t border-edge p-4">
-        <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2 text-[11px] text-dim">
-          <span>Policy Matrix</span>
-          <span className="mono font-semibold text-mint">v{policyVersion ?? "…"}</span>
+        {/* сотрудник и роль: интерфейс знает, что можно показывать, а что запрещено на бэкенде */}
+        <div className="flex items-center gap-2.5 rounded-lg bg-white/[0.03] px-3 py-2">
+          <div className="grid size-7 shrink-0 place-items-center rounded-full border border-edge text-[11px] font-semibold text-acc2">
+            {(user?.name ?? "—").slice(0, 1)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[11.5px] text-txt/90">{user?.name ?? "…"}</div>
+            <div className="text-[10px] text-dim">{user ? ROLE_LABEL[user.role] : ""}</div>
+          </div>
+          <button
+            onClick={logout}
+            title="Выйти"
+            className="grid size-7 place-items-center rounded-md text-dim transition hover:bg-white/[0.06] hover:text-danger"
+          >
+            <LogOut size={13} />
+          </button>
         </div>
-        <button
-          onClick={reset}
-          disabled={resetting}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-edge px-3 py-2 text-[11px] text-dim transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
-        >
-          <RotateCcw size={12} className={resetting ? "animate-spin" : ""} />
-          Сбросить демо-данные
-        </button>
+
+        {user?.role === "admin" && (
+          <>
+            <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2 text-[11px] text-dim">
+              <span>Policy Matrix</span>
+              <span className="mono font-semibold text-mint">v{policyVersion ?? "…"}</span>
+            </div>
+            <button
+              onClick={reset}
+              disabled={resetting}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-edge px-3 py-2 text-[11px] text-dim transition hover:border-danger/50 hover:text-danger disabled:opacity-50"
+            >
+              <RotateCcw size={12} className={resetting ? "animate-spin" : ""} />
+              Сбросить демо-данные
+            </button>
+          </>
+        )}
+
         <div className="px-1 text-[10px] leading-relaxed text-dim/70">
           LLM: GigaChat → YandexGPT → <span className="text-acc2">MockLLM</span>
         </div>

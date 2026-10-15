@@ -13,13 +13,13 @@ export async function GET() {
   const proxied = await proxySite("/health");
   if (proxied) {
     const data = (await proxied.json()) as Record<string, unknown>;
-    return Response.json({ ...data, service: "synapse-ai-crm", engine: "backend" });
+    return Response.json({ ...data, service: "los-ai-crm", engine: "backend" });
   }
 
   if (!db) {
     return Response.json({
       ok: true,
-      service: "synapse-ai-crm",
+      service: "los-ai-crm",
       db: "not_configured",
       engine: backendConfigured ? "mock-fallback" : "mock",
       note: backendConfigured
@@ -33,7 +33,7 @@ export async function GET() {
     await db.execute(sql`select 1`);
     return Response.json({
       ok: true,
-      service: "synapse-ai-crm",
+      service: "los-ai-crm",
       db: "up",
       engine: backendConfigured ? "mock-fallback" : "mock",
       note: backendConfigured ? "бэкенд недоступен, работает демо-движок сайта" : undefined,
@@ -42,7 +42,7 @@ export async function GET() {
   } catch {
     return Response.json({
       ok: true,
-      service: "synapse-ai-crm",
+      service: "los-ai-crm",
       db: "down",
       degraded: true,
       engine: backendConfigured ? "mock-fallback" : "mock",

@@ -164,3 +164,33 @@ class Outbox(SQLModel, table=True):
     phase: Optional[str] = None
     delivered: bool = False
     ts: NaiveDatetime = Field(default_factory=utcnow)
+
+
+class User(SQLModel, table=True):
+    """Сотрудник CRM (авторизация сайта): менеджер или администратор."""
+
+    __tablename__ = "users"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    login: str = Field(index=True, unique=True)
+    password_hash: str
+    name: str = ""
+    role: str = Field(default="manager", index=True)  # manager | admin
+    active: bool = Field(default=True)
+    created_by: Optional[str] = None
+    created_at: NaiveDatetime = Field(default_factory=utcnow)
+    last_login_at: Optional[NaiveDatetime] = None
+
+
+class UserSession(SQLModel, table=True):
+    """Сессия сотрудника: токен в httpOnly-cookie, TTL и отзыв при выходе/деактивации."""
+
+    __tablename__ = "user_sessions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str = Field(index=True, unique=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    created_at: NaiveDatetime = Field(default_factory=utcnow)
+    expires_at: NaiveDatetime = Field(default_factory=utcnow)
+    revoked_at: Optional[NaiveDatetime] = None
+    user_agent: str = ""
