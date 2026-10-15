@@ -178,6 +178,11 @@ def test_action_blocks_client_percent_echo(policy):
 def test_action_blocks_foreign_client_data(policy):
     und = Understanding(category_candidates=["A"], confidence=0.9)
     decision = Decision(category="A", route="AUTONOMOUS", policy_version=1)
-    llm = ScriptedText("Дмитрий Орлов недавно купил такой же МФУ", "Подберу вам подходящий МФУ — какой формат нужен?")
+    from core import tools
+
+    stranger = tools.get_client(3)
+    answer = f"{stranger['contact']} недавно купил такой же МФУ"
+    llm = ScriptedText(answer, "Подберу вам подходящий МФУ — какой формат нужен?")
     resp = action.execute(decision, und, "Что посоветуете?", 1, ConvState(), policy, llm, [])
-    assert "Орлов" not in resp.messages[0].text and llm.calls == 2
+    assert stranger["name"] not in resp.messages[0].text and stranger["contact"] not in resp.messages[0].text
+    assert llm.calls == 2

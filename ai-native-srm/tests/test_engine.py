@@ -119,12 +119,17 @@ def test_warranty_order_not_found_collects_data_without_refusal(db):
 
 
 def test_delivery_compensation_comes_from_policy(db):
+    """Компенсация = процент из Policy × сумма просроченного заказа из данных."""
+    from core import tools
+    from core.prompts.generation import _money
+
+    overdue = next(o for o in tools.get_client(4)["orders"] if o["status"] != "delivered")
     text = send("Когда будет доставка?", client_id=4).messages[0].text
-    assert "5%" in text and "2 095" in text and "ORD-3001" in text
+    assert "5%" in text and _money(overdue["total"] * 0.05) in text and overdue["order_id"] in text
 
     update_policy({"delivery_compensation": [{"delay_days_gt": 2, "pct_of_sum": 10}]}, author="admin")
     text = send("Когда будет доставка?", client_id=4).messages[0].text
-    assert "10%" in text and "4 190" in text
+    assert "10%" in text and _money(overdue["total"] * 0.10) in text
 
 
 # --- A / B / D / E -----------------------------------------------------------------------

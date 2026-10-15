@@ -9,8 +9,24 @@
       "stock": 12,
       "lead_time_days": 1,
       "warranty_months": 12,
-      "specs": { "format": "A4", "color": false, "print_speed_ppm": 40, "functions": ["печать", "копирование", "сканирование"], "duplex": true, "network": true },
-      "compat": ["Windows 10/11", "macOS", "Linux", "1С:Предприятие 8"],
+      "specs": {
+        "format": "A4",
+        "color": false,
+        "print_speed_ppm": 40,
+        "functions": [
+          "печать",
+          "копирование",
+          "сканирование"
+        ],
+        "duplex": true,
+        "network": true
+      },
+      "compat": [
+        "Windows 10/11",
+        "macOS",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
       "description": "Чёрно-белое лазерное МФУ для небольшого офиса."
     },
     {
@@ -21,8 +37,25 @@
       "stock": 5,
       "lead_time_days": 2,
       "warranty_months": 12,
-      "specs": { "format": "A4", "color": true, "print_speed_ppm": 30, "functions": ["печать", "копирование", "сканирование", "факс"], "duplex": true, "network": true },
-      "compat": ["Windows 10/11", "macOS", "Linux", "1С:Предприятие 8"],
+      "specs": {
+        "format": "A4",
+        "color": true,
+        "print_speed_ppm": 30,
+        "functions": [
+          "печать",
+          "копирование",
+          "сканирование",
+          "факс"
+        ],
+        "duplex": true,
+        "network": true
+      },
+      "compat": [
+        "Windows 10/11",
+        "macOS",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
       "description": "Цветное лазерное МФУ с факсом для отделов продаж и бухгалтерии."
     },
     {
@@ -33,8 +66,24 @@
       "stock": 2,
       "lead_time_days": 3,
       "warranty_months": 24,
-      "specs": { "format": "A3", "color": false, "print_speed_ppm": 55, "functions": ["печать", "копирование", "сканирование"], "duplex": true, "network": true },
-      "compat": ["Windows 10/11", "macOS", "Linux", "1С:Предприятие 8"],
+      "specs": {
+        "format": "A3",
+        "color": false,
+        "print_speed_ppm": 55,
+        "functions": [
+          "печать",
+          "копирование",
+          "сканирование"
+        ],
+        "duplex": true,
+        "network": true
+      },
+      "compat": [
+        "Windows 10/11",
+        "macOS",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
       "description": "Производительное чёрно-белое МФУ формата A3 для средних и больших офисов."
     },
     {
@@ -45,8 +94,17 @@
       "stock": 25,
       "lead_time_days": 1,
       "warranty_months": 12,
-      "specs": { "format": "A4", "color": false, "print_speed_ppm": 30, "duplex": false, "network": false },
-      "compat": ["Windows 10/11", "macOS"],
+      "specs": {
+        "format": "A4",
+        "color": false,
+        "print_speed_ppm": 30,
+        "duplex": false,
+        "network": false
+      },
+      "compat": [
+        "Windows 10/11",
+        "macOS"
+      ],
       "description": "Компактный монохромный принтер для рабочего места."
     },
     {
@@ -57,8 +115,19 @@
       "stock": 14,
       "lead_time_days": 1,
       "warranty_months": 12,
-      "specs": { "format": "A4", "color": false, "print_speed_ppm": 38, "duplex": true, "network": true },
-      "compat": ["Windows 10/11", "macOS", "Linux", "1С:Предприятие 8"],
+      "specs": {
+        "format": "A4",
+        "color": false,
+        "print_speed_ppm": 38,
+        "duplex": true,
+        "network": true
+      },
+      "compat": [
+        "Windows 10/11",
+        "macOS",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
       "description": "Сетевой принтер с автоматической двусторонней печатью."
     },
     {
@@ -69,8 +138,18 @@
       "stock": 0,
       "lead_time_days": 7,
       "warranty_months": 12,
-      "specs": { "format": "A4", "color": true, "print_speed_ppm": 26, "duplex": true, "network": true },
-      "compat": ["Windows 10/11", "macOS", "Linux"],
+      "specs": {
+        "format": "A4",
+        "color": true,
+        "print_speed_ppm": 26,
+        "duplex": true,
+        "network": true
+      },
+      "compat": [
+        "Windows 10/11",
+        "macOS",
+        "Linux"
+      ],
       "description": "Цветной сетевой лазерный принтер. Под заказ."
     },
     {
@@ -81,8 +160,22 @@
       "stock": 9,
       "lead_time_days": 1,
       "warranty_months": 12,
-      "specs": { "format": "A4", "color": true, "print_speed_ppm": 15, "functions": ["печать", "копирование", "сканирование"], "duplex": false, "network": true },
-      "compat": ["Windows 10/11", "macOS"],
+      "specs": {
+        "format": "A4",
+        "color": true,
+        "print_speed_ppm": 15,
+        "functions": [
+          "печать",
+          "копирование",
+          "сканирование"
+        ],
+        "duplex": false,
+        "network": true
+      },
+      "compat": [
+        "Windows 10/11",
+        "macOS"
+      ],
       "description": "Цветное струйное МФУ с системой непрерывной подачи чернил."
     },
     {
@@ -93,7 +186,13 @@
       "stock": 80,
       "lead_time_days": 1,
       "warranty_months": 6,
-      "specs": { "yield_pages": 10000, "for": ["PX-M4200", "PX-L3300D"] },
+      "specs": {
+        "yield_pages": 10000,
+        "for": [
+          "PX-M4200",
+          "PX-L3300D"
+        ]
+      },
       "compat": [],
       "description": "Оригинальный чёрный тонер-картридж."
     },
@@ -105,7 +204,13 @@
       "stock": 7,
       "lead_time_days": 2,
       "warranty_months": 6,
-      "specs": { "yield_pages": 6000, "for": ["PX-M4800C", "PX-C5200"] },
+      "specs": {
+        "yield_pages": 6000,
+        "for": [
+          "PX-M4800C",
+          "PX-C5200"
+        ]
+      },
       "compat": [],
       "description": "Четыре цветных тонера для PX-M4800C и PX-C5200."
     },
@@ -117,7 +222,12 @@
       "stock": 15,
       "lead_time_days": 1,
       "warranty_months": 6,
-      "specs": { "yield_pages": 50000, "for": ["PX-M4200"] },
+      "specs": {
+        "yield_pages": 50000,
+        "for": [
+          "PX-M4200"
+        ]
+      },
       "compat": [],
       "description": "Фотобарабан для PX-M4200."
     },
@@ -129,8 +239,16 @@
       "stock": 6,
       "lead_time_days": 2,
       "warranty_months": 12,
-      "specs": { "format": "A4", "duplex": true, "speed_ppm": 30 },
-      "compat": ["Windows 10/11", "macOS", "1С:Предприятие 8"],
+      "specs": {
+        "format": "A4",
+        "duplex": true,
+        "speed_ppm": 30
+      },
+      "compat": [
+        "Windows 10/11",
+        "macOS",
+        "1С:Предприятие 8"
+      ],
       "description": "Протяжной сканер для документооборота."
     },
     {
@@ -141,7 +259,10 @@
       "stock": null,
       "lead_time_days": 1,
       "warranty_months": 0,
-      "specs": { "visits": "по заявке", "remote_support": true },
+      "specs": {
+        "visits": "по заявке",
+        "remote_support": true
+      },
       "compat": [],
       "description": "Удалённая поддержка и плановое обслуживание одного устройства."
     },
@@ -153,7 +274,11 @@
       "stock": null,
       "lead_time_days": 1,
       "warranty_months": 0,
-      "specs": { "visits": "выезд инженера", "loaner_device": true, "remote_support": true },
+      "specs": {
+        "visits": "выезд инженера",
+        "loaner_device": true,
+        "remote_support": true
+      },
       "compat": [],
       "description": "Выезд инженера, подменное устройство на время ремонта."
     },
@@ -165,9 +290,194 @@
       "stock": 400,
       "lead_time_days": 1,
       "warranty_months": 0,
-      "specs": { "format": "A4", "density_gsm": 80, "sheets_per_pack": 500, "packs_per_box": 5 },
+      "specs": {
+        "format": "A4",
+        "density_gsm": 80,
+        "sheets_per_pack": 500,
+        "packs_per_box": 5
+      },
       "compat": [],
       "description": "Офисная бумага для лазерной и струйной печати."
+    },
+    {
+      "sku": "MF-401A",
+      "name": "МФУ ЛазерФокс MF-401A",
+      "category": "mfu",
+      "price": 28900,
+      "stock": 12,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "description": "А4, печать/скан/копир, 38 стр/мин, дуплекс, сеть",
+      "compat": [
+        "Windows",
+        "Linux",
+        "1С"
+      ]
+    },
+    {
+      "sku": "LP-220",
+      "name": "Принтер ЛазерФокс LP-220",
+      "category": "printer",
+      "price": 14500,
+      "stock": 40,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "description": "А4 монохром, 30 стр/мин, USB/Ethernet",
+      "compat": [
+        "Windows",
+        "macOS",
+        "1С"
+      ]
+    },
+    {
+      "sku": "MF-510C",
+      "name": "МФУ цветное ЛазерФокс MF-510C",
+      "category": "mfu",
+      "price": 46700,
+      "stock": 6,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "description": "А4 цвет, 26 стр/мин, дуплекс, Wi-Fi",
+      "compat": [
+        "Windows",
+        "macOS"
+      ]
+    },
+    {
+      "sku": "PR-A3P",
+      "name": "Принтер А3 ЛазерФокс PRO A3",
+      "category": "printer",
+      "price": 88000,
+      "stock": 3,
+      "lead_time_days": 5,
+      "warranty_months": 24,
+      "description": "А3 монохром, 45 стр/мин, 2 лотка",
+      "compat": [
+        "Windows",
+        "Linux"
+      ]
+    },
+    {
+      "sku": "MF-770",
+      "name": "МФУ производственное ЛазерФокс MF-770",
+      "category": "mfu",
+      "price": 210000,
+      "stock": 1,
+      "lead_time_days": 10,
+      "warranty_months": 24,
+      "description": "А3, 70 стр/мин, финишер-опция, нагрузка 80k/мес",
+      "compat": [
+        "Windows",
+        "Linux",
+        "1С"
+      ]
+    },
+    {
+      "sku": "SC-800",
+      "name": "Сканер СканФокс SC-800",
+      "category": "scanner",
+      "price": 21000,
+      "stock": 9,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "description": "Протяжный, 60 стр/мин, АДФ 80 листов",
+      "compat": [
+        "Windows"
+      ]
+    },
+    {
+      "sku": "LBL-200",
+      "name": "Принтер этикеток ЛейблФокс LBL-200",
+      "category": "printer",
+      "price": 17300,
+      "stock": 15,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "description": "Термопечать, 203 dpi, USB/Bluetooth",
+      "compat": [
+        "Windows",
+        "1С"
+      ]
+    },
+    {
+      "sku": "SHR-150",
+      "name": "Шредер ШредФокс SHR-150",
+      "category": "office",
+      "price": 9800,
+      "stock": 21,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "description": "4-й уровень секретности, 15 листов",
+      "compat": []
+    },
+    {
+      "sku": "UPS-1000",
+      "name": "ИБП ПауэрФокс UPS-1000",
+      "category": "office",
+      "price": 12400,
+      "stock": 14,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "description": "1000 ВА / 600 Вт, LCD, 4 розетки",
+      "compat": []
+    },
+    {
+      "sku": "CRG-712",
+      "name": "Картридж ЛазерФокс CRG-712",
+      "category": "consumable",
+      "price": 3900,
+      "stock": 120,
+      "lead_time_days": 0,
+      "description": "Для LP-220, ресурс 1500 стр.",
+      "compat": [
+        "LP-220"
+      ]
+    },
+    {
+      "sku": "CRG-725",
+      "name": "Картридж ЛазерФокс CRG-725",
+      "category": "consumable",
+      "price": 4200,
+      "stock": 80,
+      "lead_time_days": 0,
+      "description": "Для MF-401A / MF-510C, ресурс 2100 стр.",
+      "compat": [
+        "MF-401A",
+        "MF-510C"
+      ]
+    },
+    {
+      "sku": "FIN-500",
+      "name": "Финишер ЛазерФокс FIN-500",
+      "category": "office",
+      "price": 54000,
+      "stock": 2,
+      "lead_time_days": 7,
+      "warranty_months": 24,
+      "description": "Сортировка, степлирование, для MF-770",
+      "compat": [
+        "MF-770"
+      ]
+    },
+    {
+      "sku": "PAP-A4",
+      "name": "Бумага А4 офисная (коробка 5 пачек)",
+      "category": "consumable",
+      "price": 1850,
+      "stock": 300,
+      "lead_time_days": 0,
+      "description": "80 г/м², класс C",
+      "compat": []
+    },
+    {
+      "sku": "SRV-PRO",
+      "name": "Сервисный контракт «Про» на 12 мес.",
+      "category": "service",
+      "price": 36000,
+      "stock": null,
+      "lead_time_days": 0,
+      "description": "Выезд инженера, ТО 4 раза/год, расходники −10%",
+      "compat": []
     }
   ]
 }

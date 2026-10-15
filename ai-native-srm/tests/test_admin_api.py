@@ -85,7 +85,8 @@ def test_reference_data_replaces_catalog(client):
         files={"file": ("catalog.json", catalog, "application/json")},
         headers=TOKEN,
     )
-    assert resp.status_code == 200 and resp.json()["records"] == 14
+    expected = len(json.loads(catalog)["items"])
+    assert resp.status_code == 200 and resp.json()["records"] == expected
     assert (DATA_DIR / "catalog.json").read_bytes() == catalog
 
 

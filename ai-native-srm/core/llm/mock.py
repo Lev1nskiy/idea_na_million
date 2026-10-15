@@ -30,7 +30,11 @@ _FAQ = ("есть ли", "в наличии", "наличи", "срок", "ко�
 _NEGATIVE = ("плохо", "недовол", "разочарова", "ужас")
 
 _RANK = {"F": 0, "I": 1, "G": 2, "H": 2, "D": 3, "E": 4, "C": 5, "B": 6, "A": 7}
-_SKU = re.compile(r"\bPX-[A-Z0-9]+(?:-[A-Z0-9]+)*\b", re.IGNORECASE)
+# Серийники (SN-…), номера заказов (ORD-…/ЗК-…) и SKU каталога в любом формате.
+# Промпт понимания требует эти поля от модели — мок обязан их отдавать так же.
+_SERIAL = re.compile(r"\bSN-[A-Z0-9]+(?:-[A-Z0-9]+)*\b", re.IGNORECASE)
+_ORDER_ID = re.compile(r"\b(?:ORD|ЗК)-\s?(\d{3,5})\b", re.IGNORECASE)
+_SKU = re.compile(r"\b(?!SN-|ORD-)[A-Z]{2,4}-[A-Z0-9]{2,6}(?:-[A-Z0-9]+)*\b")
 _PCT = re.compile(r"(\d{1,3}(?:[.,]\d+)?)\s*%")
 _QTY = re.compile(r"(\d+)\s*(?:шт|штук|единиц|принтер|мфу|картридж)", re.IGNORECASE)
 _PEOPLE = re.compile(r"(\d+)\s*(?:человек|сотрудник|чел\b)", re.IGNORECASE)
@@ -66,7 +70,12 @@ def _mock_understanding(text: str) -> dict[str, Any]:
         cats["A"] = "faq"
 
     entities: dict[str, Any] = {}
-    if (sku := _SKU.search(text)):
+    if (serial := _SERIAL.search(text)):
+        entities["serial"] = serial.group(0).upper()
+    if (ordid := _ORDER_ID.search(text)):
+        prefix = "ЗК" if ordid.group(0).upper().startswith("ЗК") else "ORD"
+        entities["order_id"] = f"{prefix}-{ordid.group(1)}"
+    if (sku := _SKU.search(text.upper())):
         entities["sku"] = sku.group(0).upper()
         entities["product"] = entities["sku"]
     elif (prod := _PRODUCT.search(text)):
