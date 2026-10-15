@@ -5,6 +5,7 @@ import {
   AlarmClock, BadgePercent, CircleCheckBig, History, LifeBuoy, Plus, Save, SlidersHorizontal, Truck, X, Zap,
 } from "lucide-react";
 import { api, type SimulateResult } from "@/lib/api";
+import { ShieldAlert } from "lucide-react";
 import { fmtClock, fmtDate, fmtRub } from "@/lib/format";
 import { Btn, Chip, Field, Glass, PageHeader, cx, inputCls } from "@/components/ui";
 import type { Policy, PolicyVersionMeta } from "@/lib/types";
@@ -20,6 +21,7 @@ export default function PolicyPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
 
+  const [allowed, setAllowed] = useState<boolean | null>(null);
   const [sim, setSim] = useState({ sum: 480_000, qty: 12, segment: "loyal", isBundle: true, delayDays: 3 });
   const [simRes, setSimRes] = useState<SimulateResult | null>(null);
 
@@ -31,14 +33,44 @@ export default function PolicyPage() {
     setHistory(history);
     return version;
   };
-  useEffect(() => { void load(); }, []);
+  // Редактор политики открыт только администратору: менеджер видит понятное объяснение,
+  // а не пустой экран или ошибку 403.
+  useEffect(() => {
+    let alive = true;
+    api.me()
+      .then(({ user }) => {
+        if (!alive) return;
+        const isAdmin = user.role === "admin";
+        setAllowed(isAdmin);
+        if (isAdmin) void load();
+      })
+      .catch(() => { if (alive) setAllowed(false); });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
+    if (allowed !== true) return;
     const t = setTimeout(() => api.simulate(sim).then(setSimRes).catch(() => null), 250);
     return () => clearTimeout(t);
-  }, [sim]);
+  }, [sim, allowed]);
 
-  if (!form) {
+  if (allowed === false) {
+    return (
+      <div className="mx-auto max-w-3xl pt-10">
+        <Glass className="p-6">
+          <div className="flex items-center gap-2 text-[13px] font-medium text-danger">
+            <ShieldAlert size={15} /> Редактор политики доступен только администратору
+          </div>
+          <p className="mt-2 text-[12px] leading-relaxed text-dim">
+            Policy Matrix задаёт скидки, компенсации, гарантию и SLA — их меняет администратор.
+            Как менеджер вы видите решения и можете переопределить любое из них в дашборде.
+          </p>
+        </Glass>
+      </div>
+    );
+  }
+
+  if (allowed === null || !form) {
     return <div className="p-8 text-[13px] text-dim">Загрузка матрицы…</div>;
   }
 

@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" }
 const jbmono = JetBrains_Mono({ subsets: ["latin", "cyrillic"], variable: "--font-jbmono" });
 
 export const metadata: Metadata = {
-  title: "СИНАПС — AI-native CRM",
+  title: "ЛОСЬ — AI-native CRM",
   description: "Демо-фронтенд AI-native CRM: чат клиента, дашборд менеджера, Policy Management, безопасность и метрики.",
 };
 

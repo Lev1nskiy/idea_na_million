@@ -39,10 +39,13 @@ def dispose_engine() -> None:
 
 
 def init_db() -> None:
-    """Создаёт таблицы, если их ещё нет."""
+    """Создаёт таблицы, если их ещё нет, и заводит демо-учётки сотрудников при пустой базе."""
     from app import models  # noqa: F401  (регистрация таблиц в metadata)
+    from core.auth import ensure_seed_users
 
     SQLModel.metadata.create_all(get_engine())
+    with session_scope() as session:
+        ensure_seed_users(session)
 
 
 @contextmanager

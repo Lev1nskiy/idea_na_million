@@ -141,7 +141,7 @@ export default function ChatPage() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13.5px] font-medium">{client.name}</div>
-            <div className="text-[10.5px] text-dim">вы пишете как клиент · отвечает оркестратор СИНАПС</div>
+            <div className="text-[10.5px] text-dim">вы пишете как клиент · отвечает оркестратор ЛОСЬ</div>
           </div>
           {detail && <CategoryChip category={detail.conversation.category} />}
           {detail && <StatusChip status={detail.conversation.status} />}

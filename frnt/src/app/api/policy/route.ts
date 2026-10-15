@@ -1,4 +1,5 @@
 import { proxySite } from "@/server/backend";
+import { mockAdminGuard } from "@/server/users";
 import { logEvent, store } from "@/server/store";
 import type { Policy } from "@/lib/types";
 
@@ -7,6 +8,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const proxied = await proxySite("/policy");
   if (proxied) return proxied;
+
+  const denied = await mockAdminGuard(); // фоллбек: политика — только администратору
+  if (denied) return denied;
 
   const st = store();
   return Response.json({ policy: st.policy });
@@ -28,6 +32,9 @@ export async function PUT(req: Request) {
   const raw = await req.text();
   const proxied = await proxySite("/policy", { method: "PUT", body: raw });
   if (proxied) return proxied;
+
+  const denied = await mockAdminGuard();
+  if (denied) return denied;
 
   const body = JSON.parse(raw || "{}") as { author?: string } & Omit<Policy, "version" | "author" | "updatedAt">;
   const st = store();

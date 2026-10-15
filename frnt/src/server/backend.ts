@@ -9,6 +9,8 @@
 // policy, demo/reset) идут мимо src/lib/api.ts, плюс так не нужны CORS-настройки и адрес
 // бэкенда не утекает в клиентский бандл.
 
+import { sessionToken } from "@/lib/session";
+
 const BACKEND = (process.env.CRM_BACKEND_URL ?? "").replace(/\/+$/, "");
 
 /** Настроен ли бэкенд (используется в /api/health и в README для диагностики). */
@@ -27,11 +29,18 @@ const TIMEOUT_MS = Number(process.env.CRM_BACKEND_TIMEOUT_MS ?? "3000");
 export async function proxySite(path: string, init?: RequestInit): Promise<Response | null> {
   if (!backendConfigured) return null;
   try {
+    // Сессия сотрудника: токен лежит в httpOnly-cookie сайта и уходит на бэкенд заголовком —
+    // браузер токена не видит, а бэкенд по нему знает роль и права.
+    const token = await sessionToken();
     const res = await fetch(`${BACKEND}/api/site${path}`, {
       ...init,
       cache: "no-store",
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "X-Auth-Token": token } : {}),
+        ...(init?.headers ?? {}),
+      },
     });
     if (res.status >= 500) return null;
     return new Response(await res.text(), {
@@ -47,5 +56,5 @@ export async function proxySite(path: string, init?: RequestInit): Promise<Respo
 export async function backendHealth(): Promise<{ ok: boolean; detail: string } | null> {
   const proxied = await proxySite("/health");
   if (!proxied) return null;
-  return { ok: proxied.ok, detail: "ai-native-crm" };
+  return { ok: proxied.ok, detail: "los-ai-crm" };
 }

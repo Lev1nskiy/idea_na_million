@@ -18,7 +18,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
 from app.frontend import mount_spa
-from app.routers import admin, clients, conversations, deals, messages, metrics, notifications, policy, ui_bridge
+from app.routers import (
+    admin,
+    auth_api,
+    clients,
+    conversations,
+    deals,
+    messages,
+    metrics,
+    notifications,
+    policy,
+    ui_bridge,
+)
 from core import rag
 from core.config import get_settings
 from core.llm import get_llm_provider
@@ -80,7 +91,11 @@ for router in (
     notifications.router,
     metrics.router,
     admin.router,
-    ui_bridge.router,  # поверхность для сайта-фронтенда (/api/site/*)
+    ui_bridge.public_router,  # health сайта — до входа в систему
+    ui_bridge.router,  # остальная поверхность сайта (/api/site/*) — под сессией сотрудника
+    auth_api.public_router,  # POST /api/site/auth/login
+    auth_api.router,  # выход и «кто я»
+    auth_api.users_router,  # управление сотрудниками (только администратор)
 ):
     app.include_router(router)
 

@@ -29,7 +29,7 @@ export function Bubble({ m, compact }: { m: Message; compact?: boolean }) {
       >
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
           <span className="text-[9.5px] font-semibold uppercase tracking-wider text-dim">
-            {isClient ? "Клиент" : isManager ? "Менеджер" : "СИНАПС"}
+            {isClient ? "Клиент" : isManager ? "Менеджер" : "ЛОСЬ"}
           </span>
           {m.phase && (
             <Chip tone={m.phase === "ACK" ? "mint" : m.phase === "HOLD" ? "danger" : "sky"} className="px-1.5 py-0 text-[9px]">

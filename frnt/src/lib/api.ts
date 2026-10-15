@@ -1,7 +1,8 @@
 // Тонкий клиент поверх REST API (аналог ui/api_client.py — бизнес-логики в UI нет).
 import type {
   BotResponse, ClientRecord, Conversation, ConvStatus, Deal, DecisionRec, EventRec,
-  HandoffRec, Message, MetricsReport, NotificationRec, Policy, PolicyVersionMeta, SecurityIncident,
+  HandoffRec, Message, MetricsReport, NotificationRec, Policy, PolicyVersionMeta, Role,
+  SecurityIncident, SiteUser,
 } from "@/lib/types";
 
 const j = async <T>(r: Response): Promise<T> => {
@@ -46,6 +47,29 @@ export interface SimulateResult {
 
 export const api = {
   base: process.env.NEXT_PUBLIC_API_BASE ?? "",
+  // --- сотрудники и вход ---
+  me: () => fetch(`${api.base}/api/auth/me`).then((r) => j<{ user: SiteUser }>(r)),
+  login: (login: string, password: string) =>
+    fetch(`${api.base}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ login, password }),
+    }).then((r) => j<{ token: string; user: SiteUser }>(r)),
+  logout: () => fetch(`${api.base}/api/auth/logout`, { method: "POST" }).then((r) => j<{ ok: boolean }>(r)),
+  users: () => fetch(`${api.base}/api/users`).then((r) => j<{ users: SiteUser[] }>(r)),
+  createUser: (input: { login: string; password: string; name?: string; role?: Role }) =>
+    fetch(`${api.base}/api/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }).then((r) => j<{ user: SiteUser }>(r)),
+  patchUser: (id: string, patch: { name?: string; role?: Role; password?: string; isActive?: boolean }) =>
+    fetch(`${api.base}/api/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then((r) => j<{ user: SiteUser }>(r)),
+  deleteUser: (id: string) => fetch(`${api.base}/api/users/${id}`, { method: "DELETE" }).then((r) => j<{ user: SiteUser }>(r)),
   conversations: (status?: string) =>
     fetch(`${api.base}/api/conversations${status ? `?status=${status}` : ""}`).then((r) => j<{ conversations: ConvListItem[] }>(r)),
   conversation: (id: string) => fetch(`${api.base}/api/conversations/${id}`).then((r) => j<ConvDetail>(r)),

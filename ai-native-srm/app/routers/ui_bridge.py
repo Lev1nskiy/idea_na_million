@@ -1,4 +1,4 @@
-"""REST-мост для сайта-фронтенда «СИНАПС»: `/api/site/*` (Шаг 7, интеграция с коллегой).
+"""REST-мост для сайта-фронтенда «ЛОСЬ»: `/api/site/*` (Шаг 7, интеграция с коллегой).
 
 Зачем отдельная поверхность, а не правка существующего API:
 * свой API (`/api/...`) уже используют Streamlit-UI, Telegram-адаптер, админка и 269 тестов —
@@ -20,14 +20,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlmodel import col, select, text
 
 from app import models as m
 from app.adapters import site, site_metrics
 from app.db import session_scope
-from core import ai_engine
+from core import ai_engine, auth
 from core import handoff as handoff_core
 from core import tools
 from core.learning import log_event
@@ -41,7 +41,12 @@ from core.policy import (
 )
 from core.schemas import IncomingMessage, utcnow
 
-router = APIRouter(prefix="/api/site", tags=["site"])
+# Публичный минимум (health до входа в систему) и защищённая часть: всё остальное
+# доступно только сотруднику с живой сессией. Политика и сброс демо — исключительно
+# администратору; права проверяются на бэкенде (core/auth.py), интерфейс лишь прячет кнопки.
+public_router = APIRouter(prefix="/api/site", tags=["site"])
+router = APIRouter(prefix="/api/site", tags=["site"], dependencies=[Depends(auth.current_user)])
+admin_only = [Depends(auth.admin_user)]
 
 DEFAULT_MANAGER = "Менеджер А."  # как в mock сайта: различимо в интерфейсе менеджера
 
@@ -69,7 +74,7 @@ class OverrideBody(BaseModel):
 # ---------------------------------------------------------------------------
 # Служебное
 # ---------------------------------------------------------------------------
-@router.get("/health")
+@public_router.get("/health")
 def health() -> dict[str, Any]:
     """Легковесный healthcheck сайта: бэкенд-движок работает даже без БД (degraded)."""
     db_state, degraded = "up", False
@@ -80,7 +85,7 @@ def health() -> dict[str, Any]:
         db_state, degraded = "down", True
     body: dict[str, Any] = {
         "ok": True,
-        "service": "ai-native-crm",
+        "service": "los-ai-crm",
         "db": db_state,
         "time": site.iso(utcnow()),
     }
@@ -406,7 +411,7 @@ def incidents(limit: int = Query(default=50, ge=1, le=200)) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Policy Matrix, симулятор и метрики
 # ---------------------------------------------------------------------------
-@router.get("/policy")
+@router.get("/policy", dependencies=admin_only)
 def policy_get() -> dict[str, Any]:
     with session_scope() as s:
         policy = get_policy(s)
@@ -415,7 +420,7 @@ def policy_get() -> dict[str, Any]:
     return {"policy": site.policy_out(policy, author=meta.author if meta else "system", updated_at=meta.ts if meta else None)}
 
 
-@router.put("/policy")
+@router.put("/policy", dependencies=admin_only)
 def policy_put(body: dict[str, Any]) -> dict[str, Any]:
     """Создаёт новую версию политики; вступает в силу немедленно (кэша нет)."""
     with session_scope() as s:
@@ -433,7 +438,7 @@ def policy_put(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@router.get("/policy/history")
+@router.get("/policy/history", dependencies=admin_only)
 def policy_history(limit: int = Query(default=50, ge=1, le=200)) -> dict[str, Any]:
     with session_scope() as s:
         rows = list_policy_versions(limit=limit, session=s)
@@ -456,7 +461,7 @@ class SimulateBody(BaseModel):
     orderSum: float | None = None
 
 
-@router.post("/policy/simulate")
+@router.post("/policy/simulate", dependencies=admin_only)
 def policy_simulate(body: SimulateBody) -> dict[str, Any]:
     """Считает скидку и компенсацию ТЕМИ ЖЕ функциями, что и движок (`core.policy`).
 
@@ -502,7 +507,7 @@ def metrics() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Демо: сброс к исходному состоянию
 # ---------------------------------------------------------------------------
-@router.post("/demo/reset")
+@router.post("/demo/reset", dependencies=admin_only)
 def demo_reset() -> dict[str, Any]:
     """Сброс демо-стенда: пустые диалоги + клиенты/политика из справочников (как `seed_demo --reset`).
 

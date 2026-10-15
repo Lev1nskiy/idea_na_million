@@ -26,10 +26,17 @@ from core.policy import seed_policy_if_empty  # noqa: E402
 DEMO_MANAGERS = ("Анна (продажи)", "Игорь (сервис)", "Ольга (старший менеджер)")
 
 
+# Учётные записи сотрудников сброс демо-данных не трогает: иначе кнопка «Сбросить демо-данные»
+# выкидывала бы администратора на экран входа прямо во время демонстрации.
+AUTH_TABLES = {"users", "user_sessions"}
+
+
 def seed(reset: bool = False) -> dict[str, int | bool]:
     """Заводит клиентов из справочника и политику. Возвращает отчёт для лога/тестов."""
     if reset:
-        SQLModel.metadata.drop_all(dbm.get_engine())
+        engine = dbm.get_engine()
+        tables = [t for t in SQLModel.metadata.sorted_tables if t.name not in AUTH_TABLES]
+        SQLModel.metadata.drop_all(engine, tables=tables)
     dbm.init_db()
     created_policy = seed_policy_if_empty()
 

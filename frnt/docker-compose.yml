@@ -1,4 +1,4 @@
-name: synapse-ai-crm
+name: los-ai-crm
 
 # docker compose up --build  →  http://localhost:3000
 services:
