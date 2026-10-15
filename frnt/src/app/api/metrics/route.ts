@@ -1,9 +1,13 @@
+import { proxySite } from "@/server/backend";
 import { computeMetrics } from "@/server/metrics";
 import { store, tick } from "@/server/store";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const proxied = await proxySite("/metrics");
+  if (proxied) return proxied;
+
   tick();
   const st = store();
   return Response.json({

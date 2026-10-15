@@ -1,8 +1,12 @@
+import { proxySite } from "@/server/backend";
 import { store, tick } from "@/server/store";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const proxied = await proxySite(`/conversations${new URL(req.url).search}`);
+  if (proxied) return proxied;
+
   tick();
   const st = store();
   const url = new URL(req.url);

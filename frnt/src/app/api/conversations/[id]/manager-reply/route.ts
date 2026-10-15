@@ -1,11 +1,17 @@
+import { proxySite } from "@/server/backend";
 import { logEvent, nextId, store } from "@/server/store";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const body = (await req.json()) as { text?: string };
+  const raw = await req.text();
+  const body = JSON.parse(raw || "{}") as { text?: string };
   if (!body.text?.trim()) return Response.json({ error: "text обязателен" }, { status: 400 });
+
+  const proxied = await proxySite(`/conversations/${id}/manager-reply`, { method: "POST", body: raw });
+  if (proxied) return proxied;
+
   const st = store();
   const conv = st.conversations.find((c) => c.id === id);
   if (!conv) return Response.json({ error: "not found" }, { status: 404 });

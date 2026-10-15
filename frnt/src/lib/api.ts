@@ -70,9 +70,13 @@ export const api = {
   deals: () => fetch(`${api.base}/api/deals`).then((r) => j<{ deals: (Deal & { clientName: string })[] }>(r)),
   metrics: () => fetch(`${api.base}/api/metrics`).then((r) => j<MetricsDto>(r)),
   incidents: () => fetch(`${api.base}/api/security/incidents`).then((r) => j<{ incidents: SecurityIncident[] }>(r)),
+  clients: () => fetch(`${api.base}/api/clients`).then((r) => j<{ clients: ClientOption[] }>(r)),
 };
 
-export const CLIENT_OPTIONS: { id: string; name: string; contact: string; segment: string }[] = [
+export type ClientOption = { id: string; name: string; contact: string; segment: string };
+
+/** Резервный справочник: используется, пока страница не получила список с бэкенда. */
+export const CLIENT_OPTIONS: ClientOption[] = [
   { id: "C-1005", name: "ООО «Альфа Принт»", contact: "Дмитрий", segment: "новый" },
   { id: "C-1006", name: "ООО «Меридиан Логистика»", contact: "Ольга", segment: "постоянный" },
   { id: "C-1001", name: "ООО «ГрандСнаб»", contact: "Ирина", segment: "стандарт" },

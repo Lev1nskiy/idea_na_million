@@ -1,3 +1,4 @@
+import { proxySite } from "@/server/backend";
 import { logEvent, nextId, store } from "@/server/store";
 
 export const dynamic = "force-dynamic";
@@ -5,6 +6,9 @@ export const dynamic = "force-dynamic";
 /** Менеджер подключается (takeover) — дублирование уведомлений прекращается (п. 0 №17). */
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
+  const proxied = await proxySite(`/conversations/${id}/takeover`, { method: "POST", body: "{}" });
+  if (proxied) return proxied;
+
   const st = store();
   const conv = st.conversations.find((c) => c.id === id);
   if (!conv) return Response.json({ error: "not found" }, { status: 404 });

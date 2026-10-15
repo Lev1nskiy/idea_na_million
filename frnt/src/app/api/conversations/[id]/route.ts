@@ -1,10 +1,14 @@
+import { proxySite } from "@/server/backend";
 import { convMessages, store, tick } from "@/server/store";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  tick();
   const { id } = await ctx.params;
+  const proxied = await proxySite(`/conversations/${id}`);
+  if (proxied) return proxied;
+
+  tick();
   const st = store();
   const conv = st.conversations.find((c) => c.id === id);
   if (!conv) return Response.json({ error: "not found" }, { status: 404 });
