@@ -24,7 +24,9 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Any
@@ -115,6 +117,74 @@ class LeadApi:
         """Проверка доступности API для `--check` (публичный health, без токена)."""
         payload = self._call("GET", "/api/health")
         return payload if isinstance(payload, dict) else {}
+
+
+def telegram_call(token: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Вызов Telegram Bot API — нужен только диагностике (getMe, getWebhookInfo, deleteWebhook).
+
+    Ошибки не бросаем, а возвращаем как {ok: false, description}: диагностика должна
+    объяснять проблему, а не падать самой.
+    """
+    url = f"https://api.telegram.org/bot{token}/{method}"
+    if params:
+        url = f"{url}?{urllib.parse.urlencode(params)}"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url), timeout=API_TIMEOUT_S) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return {"ok": False, "description": f"HTTP {exc.code}: {raw[:200]}"}
+    except urllib.error.URLError as exc:
+        return {"ok": False, "description": f"нет связи с Telegram: {exc.reason}"}
+
+
+def drop_webhook(config: LeadBotConfig) -> int:
+    """Снимает webhook у бота и чистит накопившиеся апдейты.
+
+    Зачем: если у бота когда-то был установлен webhook (например, при попытке развернуть приём
+    на сервере), Telegram отдаёт апдейты по нему, а не в long polling — и запуск бота падает
+    с TelegramConflictError. Эта команда возвращает бота к работе через getUpdates.
+    """
+    result = telegram_call(config.token, "deleteWebhook", {"drop_pending_updates": "true"})
+    if result.get("ok"):
+        print("Webhook снят, накопившиеся сообщения удалены — можно запускать бота: python -m channels.telegram_lead_bot")
+        return 0
+    print(f"Не получилось снять webhook: {result.get('description', 'неизвестная ошибка')}")
+    print("Проверьте TG_LEAD_BOT_TOKEN: возможно, он неверный или отозван в @BotFather.")
+    return 1
+
+
+async def probe_polling_free(bot: Any) -> str | None:
+    """Проверяет, свободен ли бот для long polling.
+
+    Делает безопасный getUpdates (offset=-1 ничего не подтверждает и не удаляет) и возвращает
+    причину, если бота уже опрашивает кто-то другой: второй запущенный экземпляр или webhook.
+    Без этой проверки aiogram уходит в бесконечные повторы с TelegramConflictError.
+    """
+    try:
+        from aiogram.exceptions import TelegramConflictError
+    except ImportError:  # aiogram нет — проверять нечего
+        return None
+    try:
+        await bot.get_updates(offset=-1, limit=1, timeout=0)
+        return None
+    except TelegramConflictError as exc:
+        return str(exc)
+
+
+CONFLICT_HINT = """Бот уже занят другим экземпляром — Telegram разрешает только один long polling на токен.
+  • найти лишние процессы (окна/службы с тем же ботом):
+      Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+        Where-Object { $_.CommandLine -like "*telegram_lead_bot*" } |
+        Select-Object ProcessId, CommandLine
+      затем: Stop-Process -Id <PID> -Force      (uvicorn не затронется)
+  • если бот запускался в Docker: docker ps → docker stop <container>
+  • если у бота стоял webhook (пробовали приём на сервере):
+      python -m channels.telegram_lead_bot --drop-webhook
+  • после этого запустите бота заново — только в одном окне."""
 
 
 # --------------------------------------------------------------------------- диалог
@@ -290,7 +360,24 @@ async def run() -> int:
         logger.error("aiogram не установлен: pip install aiogram (или pip install -r requirements.txt)")
         return 2
 
+    # Webhook и чужой экземпляр — две причины одного и того же TelegramConflictError,
+    # поэтому проверяем оба до старта: понятная подсказка лучше бесконечных повторов aiogram.
+    webhook = telegram_call(config.token, "getWebhookInfo").get("result") or {}
+    if webhook.get("url"):
+        logger.error(
+            "У бота установлен webhook (%s): Telegram не отдаст апдейты в long polling. "
+            "Снимите его: python -m channels.telegram_lead_bot --drop-webhook", webhook["url"],
+        )
+        return 3
+
     bot = Bot(token=config.token)
+    conflict = await probe_polling_free(bot)
+    if conflict:
+        logger.error("Бот занят другим экземпляром: %s", conflict)
+        print(CONFLICT_HINT, file=sys.stderr)
+        await bot.session.close()
+        return 3
+
     dispatcher = Dispatcher()
     dispatcher.include_router(build_dispatcher(bot, LeadApi(config), config))
     logger.info("Бот-анкета запущен: API %s, канал %s", config.api_url, CHANNEL)
@@ -309,6 +396,22 @@ async def check() -> int:
     print(f"  BOT_API_TOKEN:      {'задан' if config.api_token else 'НЕ задан — /api/leads ответит 503'}")
     print(f"  API_URL:            {config.api_url}")
     print(f"  TG_MANAGER_CHAT_ID: {config.manager_chat_id or 'не задан (копии заявок не уйдут)'}")
+    if config.token:
+        # Диагностика Telegram: какой это бот и не мешает ли polling установленный webhook
+        me = telegram_call(config.token, "getMe")
+        if me.get("ok"):
+            username = (me.get("result") or {}).get("username", "?")
+            print(f"  Бот в Telegram:     @{username}")
+        else:
+            print(f"  Бот в Telegram:     токен не принят — {me.get('description', '')}")
+            return 1
+        webhook = (telegram_call(config.token, "getWebhookInfo").get("result") or {})
+        if webhook.get("url"):
+            print(f"  Webhook:            УСТАНОВЛЕН ({webhook['url']}) — polling будет конфликтовать")
+            print("                      снять: python -m channels.telegram_lead_bot --drop-webhook")
+        else:
+            print("  Webhook:            не установлен (можно работать через long polling)")
+
     api = LeadApi(config)
     try:
         health = api.health()
@@ -324,8 +427,16 @@ async def check() -> int:
 def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="Telegram-бот-анкета AI-native CRM")
-    parser.add_argument("--check", action="store_true", help="проверить настройки и API, не подключаясь к Telegram")
+    parser.add_argument("--check", action="store_true", help="проверить настройки, бота в Telegram и доступность API")
+    parser.add_argument("--drop-webhook", action="store_true",
+                        help="снять webhook и очистить накопившиеся апдейты (лечит TelegramConflictError)")
     args = parser.parse_args()
+    if args.drop_webhook:
+        config = LeadBotConfig.from_env()
+        if not config.token:
+            print("TG_LEAD_BOT_TOKEN не задан — снимать нечего. Проверьте .env.")
+            raise SystemExit(2)
+        raise SystemExit(drop_webhook(config))
     raise SystemExit(asyncio.run(check() if args.check else run()))
 
 

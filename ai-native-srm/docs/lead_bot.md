@@ -17,9 +17,15 @@ Telegram ──(анкета)──▶ channels/telegram_lead_bot.py ──POST 
 ## Запуск
 
 ```bash
-python -m channels.telegram_lead_bot --check   # настройки + доступность API, к Telegram не идём
-python -m channels.telegram_lead_bot           # приём заявок (long polling)
+python -m channels.telegram_lead_bot --check          # настройки, бот в Telegram, webhook, доступность API
+python -m channels.telegram_lead_bot                  # приём заявок (long polling)
+python -m channels.telegram_lead_bot --drop-webhook   # снять webhook и очистить старые апдейты
 ```
+
+`--check` показывает, какой это бот в Telegram, и предупреждает, если у него установлен webhook:
+с ним polling не работает, и запуск упал бы с `TelegramConflictError`. Перед стартом бот сам
+проверяет, не занят ли токен другим экземпляром, — при конфликте он не уходит в бесконечные
+повторы, а печатает готовые команды для Windows.
 
 Переменные окружения (см. `.env.example`):
 
