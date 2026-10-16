@@ -30,6 +30,13 @@ from core.llm.base import (
 )
 
 
+#: Подпись клиента: по ней провайдер видит не анонимный скрипт, а конкретное приложение.
+USER_AGENT = "LOS-CRM/1.0 (+https://github.com/Lev1nskiy/idea_na_million)"
+
+#: Коды Cloudflare в теле ответа: защита провайдера отбросила запрос (403) или притормозила его (429).
+_CLOUDFLARE_BANS = ("error code: 1010", "error code: 1012", "error code: 1015", "error code: 1020")
+
+
 class OpenAICompatibleLLM(BaseLLM):
     """Чат-модель по OpenAI-протоколу: `POST {base_url}/chat/completions`."""
 
@@ -115,7 +122,14 @@ class OpenAICompatibleLLM(BaseLLM):
         *,
         force_json: bool = False,
     ) -> str:
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            # Свой User-Agent обязателен: облачные API стоят за Cloudflare, а тот режет запросы
+            # со стандартной подписью stdlib (`Python-urllib/3.x`) — ответ 403 «error code: 1010».
+            # Клиент без имени выглядит для защиты как бот, поэтому представляемся честно.
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json",
+        }
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
         request = urllib.request.Request(
@@ -156,6 +170,13 @@ class OpenAICompatibleLLM(BaseLLM):
 
     def _http_error(self, exc: urllib.error.HTTPError) -> LLMError:
         detail = self._body(exc)
+        if any(marker in detail.lower() for marker in _CLOUDFLARE_BANS):
+            # 403/429 от Cloudflare — не «нет доступа к модели»: отбросил сам защитный слой.
+            return LLMError(
+                f"{self.name}: провайдер отклонил запрос на уровне защиты Cloudflare ({detail[:120]}). "
+                "Проверьте, что базовый URL — из документации провайдера, и что клиент отправляет "
+                "нормальный User-Agent (в этой версии он уже отправляется)"
+            )
         hints = {
             401: self.hint_401,
             402: self.hint_402,

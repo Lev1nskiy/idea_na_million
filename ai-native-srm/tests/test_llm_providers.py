@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import io
 import json
 import socket
 import sys
@@ -295,6 +296,33 @@ def test_api_uses_any_openai_compatible_endpoint(monkeypatch: pytest.MonkeyPatch
 )
 def test_api_endpoint_is_normalized_for_any_gateway(base_url: str, expected: str) -> None:
     assert AnyApiLLM("m", base_url, "k").url == expected
+
+
+def test_api_sends_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cloudflare-защита облачных API режет stdlib без User-Agent: представляться обязательно."""
+    fake = _FakeHTTP(body={"choices": [{"message": {"content": "ок"}}]})
+    _patch_urlopen(monkeypatch, fake)
+    AnyApiLLM("m", "https://api.groq.com/openai/v1", "k").complete_text("s", "u", timeout=3.0)
+
+    assert fake.request is not None
+    headers = {k.lower(): v for k, v in fake.request.headers.items()}
+    assert headers["user-agent"].startswith("LOS-CRM/")
+    assert "python-urllib" not in headers["user-agent"].lower()
+
+
+def test_cloudflare_block_is_explained_not_blamed_on_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """403 «error code: 1010» — это защита провайдера, а не отсутствие доступа к модели."""
+    body = b'<!DOCTYPE html><title>Access denied</title>error code: 1010'
+    error = urllib.error.HTTPError("url", 403, "Forbidden", {}, io.BytesIO(body))  # type: ignore[arg-type]
+    _patch_urlopen(monkeypatch, _FakeHTTP(error=error))
+
+    with pytest.raises(LLMError) as exc_info:
+        AnyApiLLM("openai/gpt-oss-120b", "https://api.groq.com/openai/v1", "k").complete_text(
+            "s", "u", timeout=3.0
+        )
+    message = str(exc_info.value)
+    assert "Cloudflare" in message and "User-Agent" in message
+    assert "нет доступа к этой модели" not in message
 
 
 def test_api_json_mode_asks_provider_for_strict_json(monkeypatch: pytest.MonkeyPatch) -> None:
