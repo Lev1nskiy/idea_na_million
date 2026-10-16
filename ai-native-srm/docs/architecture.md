@@ -9,7 +9,8 @@
 
 ```
 app/       FastAPI: HTTP-слой, роутеры, сессии БД              (транспорт + хранение)
-channels/  адаптеры каналов: telegram_bot (aiogram 3), email_imap (заглушка)
+channels/  адаптеры каналов: telegram_lead_bot (aiogram 3, бот с меню),
+           bot_flow/bot_ui (диалог и экраны без aiogram), mock_crm/mock_telegram (mock-режим)
 ui/        Streamlit-стенд демо: клиент, менеджер, политика, метрики
 core/      вся бизнес-логика: perception → understanding → decision → action → guardrails
 scripts/   seed_demo, export_state, import_state, db_backup, bind_telegram, chat_cli
@@ -119,7 +120,10 @@ GET /api/outbox         канал забирает ответ и отдаёт �
 | `core/portability.py` | экспорт/импорт состояния, бэкап SQLite |
 | `core/llm/*` | провайдеры: mock (тесты/демо), Gigachat, YandexGPT, общий базовый класс |
 | `app/routers/*` | 8 роутеров: messages, conversations, clients, deals, policy, notifications, metrics, admin |
-| `channels/telegram_bot.py` | профиль клиента и менеджера, outbox-цикл доставки, цикл уведомлений, `--check` |
+| `channels/telegram_lead_bot.py` | транспорт бота: меню-виджет, inline-навигация, доставка ответов, уведомления менеджеру, `--check` |
+| `channels/bot_flow.py` + `bot_ui.py` | диалог бота и экраны: состояния, кнопки, тексты — без aiogram и сети |
+| `channels/mock_crm.py` + `mock_telegram.py` | mock-CRM и офлайн-прогон диалога: демонстрация без токенов, сети и модели |
+| `app/routers/bot_api.py` | фасад `/api/bot/*`: профиль, обращения, переписка, вызов менеджера |
 
 ---
 
@@ -192,7 +196,7 @@ docker compose config --quiet     # на машине пользователя
    при нескольких репликах потребуется распределённая блокировка.
 3. **RAG на эмбеддингах** (pgvector) вместо лексического поиска: `core/rag.py` изолирует
    интерфейс, замена не затронет остальное.
-4. **E-mail/WhatsApp каналы** — по образцу `channels/telegram_bot.py`, без изменений в `core/`.
+4. **E-mail/WhatsApp каналы** — по образцу Telegram-бота (транспорт + `bot_flow` + фасад `/api/bot/*`), без изменений в `core/`.
 5. **Наблюдаемость**: событие `provider=<name>` в `events` (сейчас фиксируется latency, но не
    движок), экспорт метрик в Prometheus.
 

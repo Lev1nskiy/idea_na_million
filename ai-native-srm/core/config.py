@@ -40,7 +40,6 @@ class Settings:
     admin_token: str
     bot_api_token: str
     frontend_dir: str
-    tg_bot_token: str
     tg_lead_bot_token: str
     tg_manager_chat_id: str
     log_level: str
@@ -114,11 +113,9 @@ def get_settings() -> Settings:
         local_api_key=os.getenv("LOCAL_API_KEY", ""),
         local_max_tokens=_env_int("LOCAL_MAX_TOKENS", 800),
         admin_token=os.getenv("ADMIN_TOKEN", ""),
-        # Сервисный токен Telegram-бота-анкеты: им защищены POST/GET /api/leads.
+        # Сервисный токен Telegram-бота: им защищены /api/leads и /api/bot/*.
         bot_api_token=os.getenv("BOT_API_TOKEN", ""),
         frontend_dir=os.getenv("FRONTEND_DIR", ""),
-        tg_bot_token=os.getenv("TG_BOT_TOKEN", ""),
-        # Отдельный бот-анкета: собирает данные и заводит карточку клиента (не чат-бот).
         tg_lead_bot_token=os.getenv("TG_LEAD_BOT_TOKEN", ""),
         tg_manager_chat_id=os.getenv("TG_MANAGER_CHAT_ID", ""),
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),

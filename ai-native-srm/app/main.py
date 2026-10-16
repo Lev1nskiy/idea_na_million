@@ -22,6 +22,7 @@ from app.frontend import mount_spa
 from app.routers import (
     admin,
     auth_api,
+    bot_api,
     data_api,
     clients,
     conversations,
@@ -99,7 +100,8 @@ for router in (
     auth_api.public_router,  # POST /api/site/auth/login
     auth_api.router,  # выход и «кто я»
     auth_api.users_router,  # управление сотрудниками (только администратор)
-    leads_api.router,  # заявки из бота-анкеты (/api/leads, токен X-Bot-Token)
+    leads_api.router,  # заявки из бота (/api/leads, токен X-Bot-Token)
+    bot_api.router,  # фасад Telegram-бота: профиль, обращения, переписка (/api/bot/*)
     data_api.router,  # страница «Данные» на сайте: экспорт/импорт/бэкап (только админ)
 ):
     app.include_router(router)

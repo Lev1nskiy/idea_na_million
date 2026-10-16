@@ -28,6 +28,7 @@ class Question:
     required: bool = False
 
 
+#: Анкета из пяти вопросов: то, что нужно менеджеру для звонка.
 QUESTIONS: tuple[Question, ...] = (
     Question("name", "Как вас зовут?", "Например: Дмитрий Соколов", required=True),
     Question("company", "Как называется ваша компания?", "Если частное лицо — напишите «-»"),
@@ -35,6 +36,19 @@ QUESTIONS: tuple[Question, ...] = (
     Question("email", "E-mail для документов?", "Например: zakaz@company.ru. Можно «-»"),
     Question("request", "Что нужно? Коротко опишите задачу.", "Например: 10 принтеров LP-220, нужна скидка"),
 )
+
+#: Профиль клиента в боте: без «задачи» — она спрашивается отдельно, при создании обращения.
+PROFILE_QUESTIONS: tuple[Question, ...] = tuple(q for q in QUESTIONS if q.key != "request")
+#: Быстрый доступ к вопросу по ключу: бот правит одно поле, не прогоняя анкету целиком.
+QUESTION_BY_KEY: dict[str, Question] = {q.key: q for q in QUESTIONS}
+#: Заголовки полей для итоговой карточки.
+FIELD_TITLES: dict[str, str] = {
+    "name": "Имя",
+    "company": "Компания",
+    "phone": "Телефон",
+    "email": "E-mail",
+    "request": "Задача",
+}
 
 GREETING = (
     "Здравствуйте! Я бот компании — приму заявку за минуту: спрошу имя, компанию, контакты и "
@@ -59,18 +73,22 @@ class LeadSession:
     answers: dict[str, str] = field(default_factory=dict)
     telegram_id: str | None = None
     telegram_username: str | None = None
+    #: Набор вопросов: по умолчанию анкета из пяти шагов; бот подставляет свой
+    #: (PROFILE_QUESTIONS для профиля или один вопрос при правке поля).
+    questions: tuple[Question, ...] = QUESTIONS
 
     @property
     def finished(self) -> bool:
-        return self.index >= len(QUESTIONS)
+        return self.index >= len(self.questions)
 
     @property
     def question(self) -> Question:
-        return QUESTIONS[min(self.index, len(QUESTIONS) - 1)]
+        return self.questions[min(self.index, len(self.questions) - 1)]
 
     def progress(self) -> str:
         """«Вопрос 2 из 5» — клиенту видно, что анкета короткая."""
-        return f"Вопрос {min(self.index + 1, len(QUESTIONS))} из {len(QUESTIONS)}"
+        total = len(self.questions)
+        return f"Вопрос {min(self.index + 1, total)} из {total}" if total > 1 else "Один вопрос"
 
     def reset(self) -> None:
         self.index = 0
@@ -140,11 +158,9 @@ def as_lead(session: LeadSession, *, request_min: bool = True) -> Lead:
 def summary(session: LeadSession) -> str:
     """Карточка перед отправкой: клиент видит, что именно уйдёт менеджеру."""
     rows = [
-        ("Имя", session.answers.get("name")),
-        ("Компания", session.answers.get("company")),
-        ("Телефон", session.answers.get("phone")),
-        ("E-mail", session.answers.get("email")),
-        ("Задача", session.answers.get("request")),
+        (FIELD_TITLES[q.key], session.answers.get(q.key))
+        for q in session.questions
+        if q.key in FIELD_TITLES
     ]
     body = "\n".join(f"• {label}: {value or '—'}" for label, value in rows)
     return f"Проверьте, всё верно?\n{body}\n\nОтправляем — «да», заполнить заново — «заново»."

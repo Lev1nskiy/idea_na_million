@@ -218,7 +218,13 @@ export interface HandoffRec {
 
 // LEAD — заявка из Telegram-бота-анкеты: приходит из бэкенда без диалога (convId пустой),
 // поэтому её нельзя считать только «событием внутри переписки».
-export type NotificationType = "DISPUTE" | "SECURITY" | "OVERRIDE_DUE" | "REMINDER" | "LEAD";
+export type NotificationType =
+  | "DISPUTE"
+  | "SECURITY"
+  | "OVERRIDE_DUE"
+  | "REMINDER"
+  | "LEAD"
+  | "HANDOFF_REQUEST";
 
 export interface NotificationRec {
   id: string;

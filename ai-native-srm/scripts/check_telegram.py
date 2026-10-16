@@ -137,13 +137,13 @@ def conflict_reason(probe: dict) -> str | None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Диагностика Telegram-бота-анкеты")
+    parser = argparse.ArgumentParser(description="Диагностика Telegram-бота (меню, обращения, чат с ИИ)")
     parser.add_argument("--api", default=env_value("API_URL") or "http://localhost:8000", help="адрес API")
     args = parser.parse_args()
 
     api = args.api.rstrip("/")
     report = Report()
-    print("Диагностика Telegram-канала «бот-анкета → CRM»")
+    print("Диагностика Telegram-канала «бот → CRM»")
     print(f"  папка проекта: {BASE_DIR}")
     print(f"  API:           {api}\n")
 
@@ -164,13 +164,17 @@ def main() -> int:
     else:
         report.ok("BOT_API_TOKEN задан")
 
-    # Частая ошибка: один токен на двух разных ботов — оба опрашивают Telegram и мешают друг другу
-    if chat_bot_token and chat_bot_token == token:
-        report.fail("TG_BOT_TOKEN и TG_LEAD_BOT_TOKEN совпадают — на одном токене два бота",
-                    "это гарантированный TelegramConflictError: создайте в @BotFather ОТДЕЛЬНОГО бота "
-                    "для анкеты и положите его токен в TG_LEAD_BOT_TOKEN")
+    # Один канал вместо двух: раньше было два бота (анкета и клиентский чат) и два токена.
+    # Второй бот удалён, поэтому TG_BOT_TOKEN теперь только путает: его легко запустить повторно
+    # и получить тот же TelegramConflictError.
+    if chat_bot_token and chat_bot_token != token:
+        print("         ⚠️ TG_BOT_TOKEN больше не используется: клиентский бот и анкета — один бот. "
+              "Удалите строку из .env, чтобы случайно не запустить второго.")
     elif chat_bot_token:
-        report.ok("токены клиентского бота и бота-анкеты разные")
+        report.fail("TG_BOT_TOKEN совпадает с TG_LEAD_BOT_TOKEN — это остаток старой настройки",
+                    "оставьте только TG_LEAD_BOT_TOKEN: бот теперь один, второй токен не нужен")
+    else:
+        report.ok("лишних токенов в .env нет (бот один — TG_LEAD_BOT_TOKEN)")
 
     # 2. кто это в Telegram -------------------------------------------------------------------
     print("\n2. Бот в Telegram")

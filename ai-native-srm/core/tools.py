@@ -49,6 +49,22 @@ def reload_data() -> None:
     _quote_templates.cache_clear()
 
 
+def catalog_items(limit: int = 10) -> list[dict[str, Any]]:
+    """Позиции каталога для витрины (бот, экран «Каталог и цены»): sku, название, цена, наличие."""
+    items = _read_json("catalog.json")["items"]
+    return [
+        {
+            "sku": item["sku"],
+            "name": item["name"],
+            "price": item["price"],
+            "stock": item.get("stock", 0),
+            "lead_time_days": item.get("lead_time_days"),
+            "warranty_months": item.get("warranty_months"),
+        }
+        for item in items[:limit]
+    ]
+
+
 def get_client(client_id: int) -> dict[str, Any] | None:
     return _clients().get(client_id)
 

@@ -1,26 +1,34 @@
-"""Telegram-бот-анкета: собирает данные о человеке и отдаёт их в CRM.
+"""Telegram-бот компании: меню, профиль, обращения, чат с ИИ и вызов менеджера.
 
-Отдельный бот от клиентского чата (`channels/telegram_bot.py`): здесь нет ИИ-движка и
-переписки, только анкета из пяти вопросов. Собранные данные уходят на бэкенд
-(`POST /api/leads`), где создаётся или обновляется карточка клиента: она сразу видна сайту
-в разделе клиентов и в ленте уведомлений менеджера, а дальше используется в работе —
-в том числе клиентским чат-ботом, который ищет клиента по `telegram_id`.
+Один бот вместо двух. Раньше каналов было два: бот-анкета (собирал заявку) и клиентский
+чат-бот (пересылал текст в пайплайн), и клиенту приходилось угадывать, какой из них за что
+отвечает. Теперь это один бот с меню, а разделы живут рядом: профиль, обращения, чат с ИИ,
+вызов менеджера, база знаний и каталог.
+
+Модуль — тонкий адаптер (правило Шага 6: в канале нет бизнес-логики):
+    • экраны и кнопки — `channels/bot_ui.py`;
+    • логика диалога и состояния — `channels/bot_flow.py`;
+    • CRM — фасад `/api/bot/*` (`app/routers/bot_api.py`) через `BotApi`;
+    • офлайн-прогон без токенов и сети — `python -m channels.mock_telegram`.
 
 Запуск:
-    python -m channels.telegram_lead_bot --check   # проверить настройки, ничего не отправляя
-    python -m channels.telegram_lead_bot           # начать приём заявок (long polling)
+    python -m channels.telegram_lead_bot --check          # настройки, Telegram, API
+    python -m channels.telegram_lead_bot                  # long polling
+    python -m channels.telegram_lead_bot --mock           # весь диалог в терминале (mock-CRM)
+    python -m channels.telegram_lead_bot --drop-webhook   # снять webhook, если был
 
 Переменные окружения:
     TG_LEAD_BOT_TOKEN   — токен бота от @BotFather (обязателен для запуска)
-    BOT_API_TOKEN       — сервисный токен для /api/leads (тот же, что в .env бэкенда)
+    BOT_API_TOKEN       — сервисный токен для /api/bot/* (тот же, что в .env бэкенда)
     API_URL             — адрес API (по умолчанию http://localhost:8000)
-    TG_MANAGER_CHAT_ID  — чат менеджера: туда уходит копия каждой заявки (необязательно)
+    TG_MANAGER_CHAT_ID  — чат менеджера: туда идут уведомления и копии заявок (можно списком)
     UI_URL              — адрес дашборда для ссылки в уведомлении (необязательно)
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -29,30 +37,27 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
-from channels.lead_flow import (
-    BYE,
-    GREETING,
-    RESTART,
-    SKIP_NOTE,
-    LeadSession,
-    accept,
-    as_lead,
-    confirm_done,
-    is_cancel,
-    prompt,
-    summary,
-)
+from channels import bot_ui as ui
+from channels.bot_flow import BotError, BotSession, Event, Out
+from channels.manager_feed import manager_notification_text
+from core import rag
+from core.tools import catalog_items
 
 logger = logging.getLogger(__name__)
 
-CHANNEL = "telegram-lead"
-API_TIMEOUT_S = 10.0
+API_TIMEOUT_S = 15.0
+POLL_INTERVAL_S = 2.0  # период проверки: есть ли что доставить клиенту
+MANAGER_POLL_INTERVAL_S = 5.0  # период проверки уведомлений для менеджера
+WIDGET_HINT = "⌨️ Разделы всегда под рукой — кнопки меню внизу экрана."
 
 
-@dataclass
+# --------------------------------------------------------------------------- настройки
+@dataclass(frozen=True)
 class LeadBotConfig:
+    """Настройки бота: читаются из окружения (без кэша — удобно для тестов)."""
+
     token: str
     api_url: str
     api_token: str
@@ -60,7 +65,7 @@ class LeadBotConfig:
     ui_url: str = ""
 
     @classmethod
-    def from_env(cls) -> LeadBotConfig:
+    def from_env(cls) -> "LeadBotConfig":
         return cls(
             token=os.getenv("TG_LEAD_BOT_TOKEN", "").strip(),
             api_url=os.getenv("API_URL", "http://localhost:8000").rstrip("/"),
@@ -74,53 +79,164 @@ class LeadBotConfig:
         return bool(self.token and self.api_token)
 
 
-class LeadApi:
-    """Клиент /api/leads. Ничего, кроме отправки анкеты, боту не нужно."""
+def parse_manager_chats(config: LeadBotConfig) -> list[int]:
+    """TG_MANAGER_CHAT_ID может содержать несколько id через запятую."""
+    chats: list[int] = []
+    for raw in config.manager_chat_id.split(","):
+        value = raw.strip()
+        if not value:
+            continue
+        try:
+            chats.append(int(value))
+        except ValueError:
+            logger.warning("TG_MANAGER_CHAT_ID: «%s» не похоже на chat_id — пропускаю", value)
+    return chats
 
-    def __init__(self, config: LeadBotConfig) -> None:
+
+# --------------------------------------------------------------------------- клиент CRM
+class BotApi:
+    """Клиент `/api/bot/*`: профиль, обращения, переписка. Реализует `BotService`.
+
+    Бот не ходит по внутренним ручкам дашборда: у него свой фасад и свой токен. Каждый
+    экземпляр привязан к одному чату (`telegram_id`), поэтому чужой диалог через бота
+    открыть нельзя — сервер сверяет владельца обращения.
+    """
+
+    def __init__(self, config: LeadBotConfig, telegram_id: str = "", display_name: str = "", username: str = "") -> None:
         self._config = config
+        self.telegram_id = telegram_id
+        self.display_name = display_name
+        self.username = username
 
-    def _call(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    # ------------------------------------------------------------------ HTTP
+    def _call(self, method: str, path: str, *, params: dict[str, Any] | None = None, body: dict[str, Any] | None = None) -> Any:
+        url = f"{self._config.api_url}{path}"
+        if params:
+            url = f"{url}?{urllib.parse.urlencode({k: v for k, v in params.items() if v not in (None, '')})}"
         request = urllib.request.Request(
-            f"{self._config.api_url}{path}",
+            url,
             method=method,
             data=json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None,
             headers={"Content-Type": "application/json", "X-Bot-Token": self._config.api_token},
         )
         try:
             with urllib.request.urlopen(request, timeout=API_TIMEOUT_S) as response:
-                return json.loads(response.read().decode("utf-8"))
+                raw = response.read().decode("utf-8")
+                return json.loads(raw) if raw else None
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", "replace")[:300]
-            raise RuntimeError(f"API {exc.code}: {detail}") from exc
+            detail = exc.read().decode("utf-8", "replace")
+            try:
+                detail = json.loads(detail).get("detail", detail)
+            except json.JSONDecodeError:
+                pass
+            if exc.code == 401:
+                raise BotError("CRM отклонила токен бота (BOT_API_TOKEN) — проверьте .env", exc.code) from exc
+            if exc.code == 503:
+                raise BotError("Приём сообщений в CRM выключен: не задан BOT_API_TOKEN", exc.code) from exc
+            raise BotError(f"CRM ответила ошибкой: {detail}", exc.code) from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"API недоступен ({exc.reason})") from exc
+            raise BotError("CRM недоступна — проверьте, запущен ли API (uvicorn app.main:app)") from exc
 
-    def submit(self, lead: Any) -> dict[str, Any]:
-        """Отправляет анкету. Возвращает отчёт сервера (client_id, created, changed)."""
-        return self._call(
+    # ------------------------------------------------------------------ BotService
+    def profile(self) -> dict[str, Any] | None:
+        payload = self._call("GET", "/api/bot/me", params={"telegram_id": self.telegram_id})
+        return (payload or {}).get("client") if (payload or {}).get("found") else None
+
+    def save_profile(self, answers: dict[str, str]) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "telegram_id": self.telegram_id,
+            "name": answers.get("name") or self.display_name or "Клиент Telegram",
+        }
+        for field in ("company", "phone", "email"):
+            if answers.get(field):
+                body[field] = answers[field]
+        if self.username:
+            body["username"] = self.username
+        return self._call("POST", "/api/bot/me", body=body)
+
+    def appeals(self, open_only: bool = False) -> list[dict[str, Any]]:
+        payload = self._call(
+            "GET", "/api/bot/me/appeals", params={"telegram_id": self.telegram_id, "open_only": "true" if open_only else ""}
+        )
+        return (payload or {}).get("appeals", [])
+
+    def appeal(self, conversation_id: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        payload = self._call(
+            "GET", f"/api/bot/me/appeals/{conversation_id}", params={"telegram_id": self.telegram_id}
+        ) or {}
+        return payload.get("appeal", {}), payload.get("messages", [])
+
+    def chat(self, text: str, conversation_id: int | None = None) -> dict[str, Any]:
+        body: dict[str, Any] = {"telegram_id": self.telegram_id, "text": text, "conversation_id": conversation_id}
+        if self.display_name:  # пустые поля не отправляем: сервер сам подставит разумные значения
+            body["display_name"] = self.display_name
+        if self.username:
+            body["username"] = self.username
+        return self._call("POST", "/api/bot/messages", body=body) or {}
+
+    def call_manager(self, conversation_id: int, reason: str = "") -> str:
+        payload = self._call(
             "POST",
-            "/api/leads",
-            {
-                "name": lead.name,
-                "company": lead.company,
-                "phone": lead.phone,
-                "email": lead.email,
-                "request": lead.request,
-                "telegram_id": lead.telegram_id,
-                "telegram_username": lead.telegram_username,
-                "source": lead.source,
-            },
+            f"/api/bot/me/appeals/{conversation_id}/manager",
+            params={"telegram_id": self.telegram_id, "reason": reason},
+            body={"telegram_id": self.telegram_id},
+        ) or {}
+        return str(payload.get("text", "Менеджер уведомлён — он ответит здесь."))
+
+    def close_appeal(self, conversation_id: int) -> str:
+        payload = self._call(
+            "POST",
+            f"/api/bot/me/appeals/{conversation_id}/close",
+            body={"telegram_id": self.telegram_id},
+        ) or {}
+        return str(payload.get("text", "Обращение закрыто."))
+
+    def catalog(self) -> list[dict[str, Any]]:
+        """Каталог читаем из справочника сами — те же данные, что у ИИ (без лишнего запроса)."""
+        return catalog_items()
+
+    def faq(self) -> list[tuple[str, str]]:
+        """База знаний — тоже локальный файл: это общая справка без данных клиентов (Ст. 4)."""
+        return [(chunk.title, chunk.text) for chunk in rag.sections()]
+
+    # ------------------------------------------------------------------ доставка клиенту
+    def inbox(self) -> list[dict[str, Any]]:
+        """Забирает недоставленные ответы ИИ и менеджера для этого клиента."""
+        try:
+            payload = self._call("POST", "/api/bot/me/inbox", body={"telegram_id": self.telegram_id}) or {}
+        except BotError as exc:
+            if exc.status == 404:  # писать ещё некому: карточки в CRM нет
+                return []
+            raise
+        return payload.get("items", [])
+
+    def manager_reply(self, conversation_id: int, text: str, manager: str = "Ирина (менеджер)") -> None:
+        """Ответ менеджера из дашборда — нужен только mock-транспорту, чтобы показать доставку.
+
+        В реальной работе этого вызова нет: менеджер отвечает в дашборде сайта, а бот лишь
+        забирает готовый ответ из очереди (`inbox`).
+        """
+        self._call(
+            "POST",
+            f"/api/conversations/{conversation_id}/manager-reply",
+            body={"manager": manager, "text": text},
         )
 
+    # ------------------------------------------------------------------ уведомления менеджеру
+    def manager_notifications(self) -> list[dict[str, Any]]:
+        """Непрочитанные уведомления для ленты менеджера в Telegram (Ст. 8: дубли до takeover)."""
+        return self._call("GET", "/api/notifications", params={"unread_only": "true", "active_only": "true"}) or []
+
+    def mark_notification_read(self, notification_id: int) -> None:
+        self._call("POST", f"/api/notifications/{notification_id}/read")
+
     def health(self) -> dict[str, Any]:
-        """Проверка доступности API для `--check` (публичный health, без токена)."""
-        payload = self._call("GET", "/api/health")
-        return payload if isinstance(payload, dict) else {}
+        return self._call("GET", "/api/health") or {}
 
 
+# --------------------------------------------------------------------------- диагностика Telegram
 def telegram_call(token: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Вызов Telegram Bot API — нужен только диагностике (getMe, getWebhookInfo, deleteWebhook).
+    """Вызов Telegram Bot API — нужен диагностике (getMe, getWebhookInfo, deleteWebhook).
 
     Ошибки не бросаем, а возвращаем как {ok: false, description}: диагностика должна
     объяснять проблему, а не падать самой.
@@ -187,181 +303,164 @@ CONFLICT_HINT = """Бот уже занят другим экземпляром 
   • после этого запустите бота заново — только в одном окне."""
 
 
-# --------------------------------------------------------------------------- диалог
+# --------------------------------------------------------------------------- клавиатуры
+def widget_keyboard() -> Any:
+    """Нижнее меню-виджет: постоянные разделы, доступные одним нажатием (aiogram-типы лениво)."""
+    from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
-#: Состояния: NONE (ждём /start) → FILL (идёт анкета) → CONFIRM (ждём подтверждения)
-_sessions: dict[str, LeadSession] = {}
-_state: dict[str, str] = {}
-
-
-def _chat_key(chat_id: Any) -> str:
-    return str(chat_id)
-
-
-def handle_command(text: str, session: LeadSession, state: str) -> tuple[str, str, bool]:
-    """Обрабатывает команды и подтверждение.
-
-    Возвращает (ответ клиенту, новое состояние, нужно ли отправлять анкету на сервер).
-    Вынесено из aiogram-обвязки, чтобы проверяться тестами без Telegram.
-    """
-    command = text.strip().lower()
-    if command in {"/start", "start", "начать", "заявка"}:
-        session.reset()
-        return GREETING + "\n\n" + prompt(session), "FILL", False
-    if is_cancel(command):
-        session.reset()
-        return BYE, "NONE", False
-    if state == "CONFIRM":
-        if command in {"да", "yes", "ок", "ok", "верно", "+"}:
-            return "", "SENDING", True
-        if command in {"заново", "restart", "исправить", "нет", "no"}:
-            session.reset()
-            return RESTART + "\n\n" + prompt(session), "FILL", False
-        return "Ответьте «да» — отправляем, или «заново» — заполнить анкету снова.", "CONFIRM", False
-    return "", state, False
-
-
-def handle_text(text: str, session: LeadSession) -> tuple[str, str | None]:
-    """Шаг анкеты: возвращает (ответ боту, ошибка ввода) — ошибка не двигает прогресс."""
-    error = accept(session, text)
-    if error:
-        return error, error
-    if session.finished:
-        return summary(session), None
-    if text.strip().lower() in {"-", "—", "нет", "пропустить", "skip", "не хочу"}:
-        return SKIP_NOTE + "\n\n" + prompt(session), None
-    return prompt(session), None
-
-
-def build_lead_from(session: LeadSession) -> Any:
-    """Анкета → Lead (валидация теми же правилами, что и на сервере)."""
-    return as_lead(session)
-
-
-def parse_manager_chats(config: LeadBotConfig) -> list[int]:
-    """TG_MANAGER_CHAT_ID может содержать несколько id через запятую."""
-    chats: list[int] = []
-    for raw in config.manager_chat_id.split(","):
-        value = raw.strip()
-        if not value:
-            continue
-        try:
-            chats.append(int(value))
-        except ValueError:
-            logger.warning("TG_MANAGER_CHAT_ID: «%s» не похоже на chat_id — пропускаю", value)
-    return chats
-
-
-def manager_message(report: dict[str, Any], lead: Any, ui_url: str = "") -> str:
-    """Копия заявки менеджеру в Telegram (без телефона/почты — они в карточке CRM)."""
-    who = lead.company or lead.name
-    need = f"\nЗадача: {lead.request}" if lead.request else ""
-    link = f"\nДашборд: {ui_url}/dashboard" if ui_url else ""
-    kind = "Новая заявка" if report.get("created") else "Обновление по клиенту"
-    return f"{kind} #{report.get('client_id')}: {who}{need}\nКонтакт: {lead.telegram_username or lead.telegram_id}{link}"
-
-
-# --------------------------------------------------------------------------- aiogram
-
-def build_dispatcher(bot: Any, api: LeadApi, config: LeadBotConfig) -> Any:
-    """Собирает aiogram-роутер поверх чистой логики (см. handle_command/handle_text)."""
-    from aiogram import F, Router
-    from aiogram.filters import Command
-    from aiogram.types import Message
-
-    router = Router()
-
-    async def reply(message: Message, text: str) -> None:
-        if text:
-            await message.answer(text)
-
-    async def submit(message: Message, session: LeadSession) -> None:
-        """Отправка анкеты на сервер и ответ клиенту."""
-        try:
-            lead = build_lead_from(session)
-        except Exception as exc:  # LeadError и прочее: показываем причину и даём исправиться
-            _state[_chat_key(message.chat.id)] = "FILL"
-            session.index = len(session.answers)  # возвращаемся к незаполненному шагу
-            await reply(message, f"Не получилось собрать заявку: {exc}\nНапишите /start, чтобы начать заново.")
-            return
-        try:
-            report = api.submit(lead)
-        except RuntimeError as exc:
-            logger.error("Заявка не ушла: %s", exc)
-            _state[_chat_key(message.chat.id)] = "CONFIRM"
-            await reply(message, "Не получилось передать заявку — техническая неполадка. Попробуйте ещё раз: «да».")
-            return
-        _state.pop(_chat_key(message.chat.id), None)
-        session.reset()
-        await reply(message, confirm_done(int(report.get("client_id", 0)), lead))
-        for chat in parse_manager_chats(config):
-            try:
-                await bot.send_message(chat, manager_message(report, lead, config.ui_url))
-            except Exception as exc:  # noqa: BLE001 — менеджер не должен ломать ответ клиенту
-                logger.warning("Не смог уведомить менеджера %s: %s", chat, exc)
-
-    @router.message(Command("start", "cancel", "stop"))
-    async def on_command(message: Message) -> None:  # noqa: D401
-        key = _chat_key(message.chat.id)
-        session = _sessions.setdefault(key, _make_session(message))
-        text = message.text or ""
-        answer, state, should_send = handle_command(text, session, _state.get(key, "NONE"))
-        _state[key] = state
-        await reply(message, answer)
-        if should_send:
-            await submit(message, session)
-
-    @router.message(F.text)
-    async def on_text(message: Message) -> None:
-        key = _chat_key(message.chat.id)
-        session = _sessions.setdefault(key, _make_session(message))
-        state = _state.get(key, "NONE")
-        text = message.text or ""
-        if state == "NONE":
-            await reply(message, "Привет! Чтобы оставить заявку, напишите /start.")
-            return
-        answer, state_new, should_send = handle_command(text, session, state)
-        if state_new != state and state != "CONFIRM":
-            _state[key] = state_new
-        if should_send:
-            _state[key] = "SENDING"
-            await submit(message, session)
-            return
-        if answer:  # команда/подтверждение уже дали текст
-            await reply(message, answer)
-            return
-        answer, error = handle_text(text, session)
-        if not error and session.finished:
-            _state[key] = "CONFIRM"
-        await reply(message, answer)
-
-    return router
-
-
-def _make_session(message: Any) -> LeadSession:
-    """Запоминаем telegram_id/username сразу: они и есть «контакт» по умолчанию."""
-    user = getattr(message, "from_user", None)
-    return LeadSession(
-        telegram_id=str(user.id) if user else None,
-        telegram_username=getattr(user, "username", None),
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=label) for label in row] for row in ui.widget_menu()],
+        resize_keyboard=True,
+        is_persistent=True,
+        input_field_placeholder="Выберите раздел или напишите вопрос",
     )
 
 
+def inline_keyboard(rows: tuple[tuple[ui.Button, ...], ...]) -> Any:
+    """Inline-кнопки экрана (навигация по разделам и действия с обращением)."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+    buttons = [
+        [
+            InlineKeyboardButton(text=b.text, url=b.url) if b.url else InlineKeyboardButton(text=b.text, callback_data=b.data)
+            for b in row
+        ]
+        for row in rows
+        if row
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+
+
+def delivery_text(item: dict[str, Any]) -> str:
+    """Оформление сообщения, пришедшего из CRM (ответ менеджера или догоняющий ответ ИИ)."""
+    role = item.get("role", "")
+    if role == "manager":
+        return f"🧑‍💼 <b>Менеджер:</b>\n{item.get('text', '')}"
+    if role == "ai":
+        return f"🤖 {item.get('text', '')}"
+    return str(item.get("text", ""))
+
+
+# --------------------------------------------------------------------------- aiogram
+def build_dispatcher(bot: Any, config: LeadBotConfig) -> Any:
+    """Собирает Dispatcher: сессии по чатам, экраны из bot_flow, виджет и outbox-поллер."""
+    from aiogram import Dispatcher, F
+    from aiogram.filters import Command
+    from aiogram.types import CallbackQuery, Message
+
+    sessions: dict[str, BotSession] = {}
+    api_clients: dict[str, BotApi] = {}
+    widget_ready: set[str] = set()
+    dispatcher = Dispatcher()
+
+    def api_for(chat_key: str) -> BotApi:
+        return api_clients[chat_key]
+
+    def session_for(message: Message) -> BotSession:
+        key = str(message.chat.id)
+        if key not in sessions:
+            user = message.from_user
+            api = BotApi(
+                config,
+                telegram_id=key,
+                display_name=getattr(user, "full_name", "") or getattr(user, "first_name", ""),
+                username=getattr(user, "username", "") or "",
+            )
+            api_clients[key] = api
+            sessions[key] = BotSession(api, telegram_id=key, display_name=api.display_name, username=api.username)
+        return sessions[key]
+
+    async def render(message: Message, chat_key: str, out: Out) -> None:
+        """Показывает экран: inline-кнопки — правкой сообщения, иначе новым сообщением.
+
+        Нижний виджет-меню Telegram разрешает только у нового сообщения, поэтому он
+        ставится один раз за диалог, а навигация идёт inline-кнопками без спама.
+        """
+        inline = inline_keyboard(out.screen.rows)
+        if out.edit and inline is not None:
+            with contextlib.suppress(Exception):  # сообщение могло устареть — тогда отправим новое
+                await message.edit_text(out.screen.text, reply_markup=inline)
+                return
+        await message.answer(out.screen.text, reply_markup=inline or (widget_keyboard() if out.screen.menu else None))
+        if out.screen.menu and chat_key not in widget_ready:
+            widget_ready.add(chat_key)
+            await message.answer(WIDGET_HINT, reply_markup=widget_keyboard())
+
+    async def dispatch(message: Message, event: Event) -> None:
+        chat_key = str(message.chat.id)
+        session = session_for(message)
+        for out in session.handle(event):
+            await render(message, chat_key, out)
+
+    @dispatcher.message(Command("start", "menu", "help", "profile", "appeals", "chat", "manager", "id", "cancel"))
+    async def on_command(message: Message) -> None:
+        await dispatch(message, Event.message(message.text or "/start"))
+
+    @dispatcher.message(F.text)
+    async def on_text(message: Message) -> None:
+        await dispatch(message, Event.message(message.text or ""))
+
+    @dispatcher.callback_query()
+    async def on_callback(query: CallbackQuery) -> None:
+        if query.message is None or query.data is None:
+            return
+        session = session_for(query.message)  # type: ignore[arg-type]
+        outs = session.handle(Event.callback(query.data))
+        await query.answer(text=next((out.notify for out in outs if out.notify), "")[:200])
+        for out in outs:
+            await render(query.message, str(query.message.chat.id), out)  # type: ignore[arg-type]
+
+    # поллеру доставки нужны те же сессии и клиенты, что и обработчикам
+    dispatcher.workflow_data.update(sessions=sessions, api_for=api_for)
+    return dispatcher
+
+
+async def deliver_loop(bot: Any, dispatcher: Any, interval: float = POLL_INTERVAL_S) -> None:
+    """Доставляет клиентам то, что появилось в CRM без их участия: ответы менеджера и FINAL после INTERIM."""
+    sessions: dict[str, BotSession] = dispatcher.workflow_data["sessions"]
+    api_for: Callable[[str], BotApi] = dispatcher.workflow_data["api_for"]
+    while True:
+        for chat_key, session in list(sessions.items()):
+            try:
+                for item in api_for(chat_key).inbox():
+                    if item.get("role") == "manager" and not session.notify_manager_replies:
+                        continue  # клиент отключил уведомления об ответах менеджера в настройках
+                    await bot.send_message(
+                        chat_id=chat_key, text=delivery_text(item), reply_markup=widget_keyboard()
+                    )
+            except Exception as exc:  # одна упавшая доставка не должна останавливать цикл
+                logger.error("delivery loop: %s", type(exc).__name__)
+        await asyncio.sleep(interval)
+
+
+async def notify_manager_loop(bot: Any, api: BotApi, manager_chats: list[int], ui_url: str = "", interval: float = MANAGER_POLL_INTERVAL_S) -> None:
+    """Пересылает менеджеру уведомления CRM: спор, инъекция, «нужно решение», запрос менеджера."""
+    while True:
+        try:
+            for note in api.manager_notifications():
+                for chat in manager_chats:
+                    with contextlib.suppress(Exception):
+                        await bot.send_message(chat_id=chat, text=manager_notification_text(note, ui_url))
+                api.mark_notification_read(int(note["id"]))
+        except Exception as exc:
+            logger.error("manager loop: %s", type(exc).__name__)
+        await asyncio.sleep(interval)
+
+
 async def run() -> int:
-    """Запуск long polling. Требует установленного aiogram."""
+    """Запуск long polling: диалог бота, доставка ответов клиентам, уведомления менеджеру."""
     config = LeadBotConfig.from_env()
     if not config.ready:
-        missing = [name for name, value in (("TG_LEAD_BOT_TOKEN", config.token), ("BOT_API_TOKEN", config.api_token)) if not value]
+        missing = [n for n, v in (("TG_LEAD_BOT_TOKEN", config.token), ("BOT_API_TOKEN", config.api_token)) if not v]
         logger.error("Не хватает переменных: %s. Проверка: python -m channels.telegram_lead_bot --check", ", ".join(missing))
         return 2
     try:
-        from aiogram import Bot, Dispatcher
+        from aiogram import Bot
     except ImportError:
         logger.error("aiogram не установлен: pip install aiogram (или pip install -r requirements.txt)")
         return 2
 
-    # Webhook и чужой экземпляр — две причины одного и того же TelegramConflictError,
-    # поэтому проверяем оба до старта: понятная подсказка лучше бесконечных повторов aiogram.
+    # Webhook и чужой экземпляр — две причины одного TelegramConflictError, проверяем обе
     webhook = telegram_call(config.token, "getWebhookInfo").get("result") or {}
     if webhook.get("url"):
         logger.error(
@@ -378,47 +477,64 @@ async def run() -> int:
         await bot.session.close()
         return 3
 
-    dispatcher = Dispatcher()
-    dispatcher.include_router(build_dispatcher(bot, LeadApi(config), config))
-    logger.info("Бот-анкета запущен: API %s, канал %s", config.api_url, CHANNEL)
+    dispatcher = build_dispatcher(bot, config)
+    manager_chats = parse_manager_chats(config)
+    tasks = [asyncio.create_task(deliver_loop(bot, dispatcher))]
+    if manager_chats:
+        tasks.append(asyncio.create_task(notify_manager_loop(bot, BotApi(config), manager_chats, config.ui_url)))
+    else:
+        logger.warning("TG_MANAGER_CHAT_ID не задан: уведомления менеджеру в Telegram идти не будут")
+
+    logger.info(
+        "Бот запущен: API %s, менеджеры %s. Разделы меню: профиль, обращения, чат с ИИ, менеджер, помощь, каталог, настройки",
+        config.api_url, manager_chats or "—",
+    )
     try:
         await dispatcher.start_polling(bot)
     finally:
+        for task in tasks:
+            task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.gather(*tasks, return_exceptions=True)
         await bot.session.close()
     return 0
 
 
 async def check() -> int:
-    """Диагностика без подключения к Telegram: настройки и доступность API."""
+    """Диагностика без подключения к Telegram: настройки, бот, API и режим mock-ответов."""
     config = LeadBotConfig.from_env()
-    print("Настройки бота-анкеты:")
+    print("Настройки бота:")
     print(f"  TG_LEAD_BOT_TOKEN:  {'задан' if config.token else 'НЕ задан — запуск невозможен'}")
-    print(f"  BOT_API_TOKEN:      {'задан' if config.api_token else 'НЕ задан — /api/leads ответит 503'}")
+    print(f"  BOT_API_TOKEN:      {'задан' if config.api_token else 'НЕ задан — /api/bot/* ответит 503'}")
     print(f"  API_URL:            {config.api_url}")
-    print(f"  TG_MANAGER_CHAT_ID: {config.manager_chat_id or 'не задан (копии заявок не уйдут)'}")
+    print(f"  TG_MANAGER_CHAT_ID: {config.manager_chat_id or 'не задан (уведомления менеджеру в Telegram не пойдут)'}")
+    print(f"  UI_URL:             {config.ui_url or 'не задан (ссылка на дашборд в уведомлениях будет короче)'}")
+    print(f"  Разделы меню:       {len(ui.widget_menu()) * 2} кнопок-виджет + inline-навигация на экранах")
     if config.token:
         # Диагностика Telegram: какой это бот и не мешает ли polling установленный webhook
         me = telegram_call(config.token, "getMe")
         if me.get("ok"):
-            username = (me.get("result") or {}).get("username", "?")
-            print(f"  Бот в Telegram:     @{username}")
+            print(f"  Бот в Telegram:     @{(me.get('result') or {}).get('username', '?')}")
         else:
             print(f"  Бот в Telegram:     токен не принят — {me.get('description', '')}")
             return 1
-        webhook = (telegram_call(config.token, "getWebhookInfo").get("result") or {})
+        webhook = telegram_call(config.token, "getWebhookInfo").get("result") or {}
         if webhook.get("url"):
             print(f"  Webhook:            УСТАНОВЛЕН ({webhook['url']}) — polling будет конфликтовать")
             print("                      снять: python -m channels.telegram_lead_bot --drop-webhook")
         else:
             print("  Webhook:            не установлен (можно работать через long polling)")
 
-    api = LeadApi(config)
+    api = BotApi(config)
     try:
         health = api.health()
-        print(f"  API:                отвечает — {health.get('status', '?')}, провайдер {health.get('provider', '?')}")
-    except RuntimeError as exc:
+    except BotError as exc:
         print(f"  API:                НЕ отвечает — {exc}")
         return 1
+    llm = health.get("provider", "?")
+    print(f"  API:                отвечает — статус {health.get('status', '?')}, политика v{health.get('policy_version', '?')}")
+    print(f"  LLM:                провайдер {llm}" + (" (ключей нет — ответы детерминированные, этого достаточно для демо)" if llm in ("mock", "") else ""))
+    print("  Офлайн-прогон:      python -m channels.mock_telegram   (весь диалог без Telegram и без CRM)")
     if not config.ready:
         return 1
     return 0
@@ -426,8 +542,9 @@ async def check() -> int:
 
 def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    parser = argparse.ArgumentParser(description="Telegram-бот-анкета AI-native CRM")
+    parser = argparse.ArgumentParser(description="Telegram-бот AI-native CRM: меню, обращения, чат с ИИ")
     parser.add_argument("--check", action="store_true", help="проверить настройки, бота в Telegram и доступность API")
+    parser.add_argument("--mock", action="store_true", help="прогнать диалог в терминале без Telegram (mock-CRM)")
     parser.add_argument("--drop-webhook", action="store_true",
                         help="снять webhook и очистить накопившиеся апдейты (лечит TelegramConflictError)")
     args = parser.parse_args()
@@ -437,6 +554,10 @@ def main() -> None:
             print("TG_LEAD_BOT_TOKEN не задан — снимать нечего. Проверьте .env.")
             raise SystemExit(2)
         raise SystemExit(drop_webhook(config))
+    if args.mock:
+        from channels import mock_telegram  # локальный импорт: mock-режим не нужен в бою
+
+        raise SystemExit(mock_telegram.main([]))
     raise SystemExit(asyncio.run(check() if args.check else run()))
 
 

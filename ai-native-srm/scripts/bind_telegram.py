@@ -4,7 +4,7 @@
     python scripts/bind_telegram.py --client 4 --telegram-id 123456789
     python scripts/bind_telegram.py --client 4 --unbind
 
-Зачем: адаптер Telegram (channels/telegram_bot.py) ищет клиента по `telegram_id`
+Зачем: Telegram-бот (channels/telegram_lead_bot.py) ищет клиента по `telegram_id`
 (эндпоинт `GET /api/clients/by-telegram/{id}`). В справочнике `clients_history.json`
 это поле пустое, потому что настоящий id появляется только у живого аккаунта —
 узнайте свой у бота @userinfobot и привяжите здесь.

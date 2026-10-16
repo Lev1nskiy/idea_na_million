@@ -1,7 +1,7 @@
 # AI-native CRM: API + UI + Telegram-бот (Шаг 6).
 # Запуск:  cp .env.example .env && docker compose up --build
-# Клиентский чат-бот:  docker compose --profile bot up --build    (нужен TG_BOT_TOKEN в .env)
-# Бот-анкета:          docker compose --profile lead up --build   (нужны TG_LEAD_BOT_TOKEN и BOT_API_TOKEN)
+# Бот (меню, профиль, обращения, чат с ИИ): docker compose --profile bot up --build
+#                                            (нужны TG_LEAD_BOT_TOKEN и BOT_API_TOKEN)
 services:
   api:
     # WITH_LLM=1 добавляет в образ SDK GigaChat (см. docs/llm_setup.md).
@@ -50,24 +50,11 @@ services:
       - ./data:/app/data
     restart: unless-stopped
 
+  # Telegram-бот компании: меню (профиль, обращения, чат с ИИ, менеджер, FAQ, каталог),
+  # доставка ответов менеджера клиенту и уведомления менеджеру. Токены берутся из .env.
   bot:
     image: ai-native-crm:latest
-    profiles: ["bot"]              # без TG_BOT_TOKEN в .env compose работает и без бота
-    depends_on:
-      api:
-        condition: service_healthy
-    command: python -m channels.telegram_bot
-    env_file: .env
-    environment:
-      API_URL: http://api:8000
-      UI_URL: http://localhost:8501   # ссылка в уведомлениях менеджеру (наружный адрес)
-    restart: unless-stopped
-
-  # Бот-анкета: отдельный бот от клиентского чата — собирает имя, компанию, контакты и задачу
-  # и заводит карточку клиента через POST /api/leads. Токены берутся из .env.
-  lead-bot:
-    image: ai-native-crm:latest
-    profiles: ["lead"]
+    profiles: ["bot"]              # без TG_LEAD_BOT_TOKEN в .env compose работает и без бота
     depends_on:
       api:
         condition: service_healthy
@@ -75,7 +62,7 @@ services:
     env_file: .env
     environment:
       API_URL: http://api:8000
-      UI_URL: http://localhost:8501   # ссылка на дашборд в копии заявки менеджеру
+      UI_URL: http://localhost:3000   # ссылка на дашборд в уведомлениях менеджеру
     restart: unless-stopped
 
   # Регулярные снимки БД: `docker compose run --rm backup` или cron на хосте.
