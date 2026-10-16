@@ -128,7 +128,8 @@ class BotSession:
         """Обрабатывает событие и возвращает, что показать (экранов может быть несколько)."""
         try:
             if event.kind == "callback":
-                return self._emit(self._callback(event.text))
+                # нажатие inline-кнопки правит то же сообщение: разделы переключаются без спама
+                return [self._remember(dataclasses.replace(out, edit=True)) for out in self._callback(event.text)]
             if event.kind == "command":
                 return self._emit(self._command(event.text))
             return self._emit(self._text(event.text))

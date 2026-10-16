@@ -51,6 +51,25 @@ API_TIMEOUT_S = 15.0
 POLL_INTERVAL_S = 2.0  # период проверки: есть ли что доставить клиенту
 MANAGER_POLL_INTERVAL_S = 5.0  # период проверки уведомлений для менеджера
 WIDGET_HINT = "⌨️ Разделы всегда под рукой — кнопки меню внизу экрана."
+#: Команды бота: показываются в списке Telegram (кнопка «Меню» рядом с полем ввода).
+BOT_COMMANDS: tuple[tuple[str, str], ...] = (
+    ("start", "меню и разделы"),
+    ("profile", "мой профиль"),
+    ("appeals", "мои обращения"),
+    ("chat", "спросить ИИ"),
+    ("manager", "позвать менеджера"),
+    ("id", "мой номер для менеджера"),
+    ("cancel", "отменить заполнение"),
+)
+BOT_ABOUT = "Бот компании «ЛОСЬ»: подскажу наличие и цены, приму обращение, отвечу на вопросы и позову менеджера."
+BOT_ABOUT_LONG = (
+    "Я отвечаю на вопросы про товары, цены, доставку, гарантию и ремонт, а сложное передаю менеджеру.\n"
+    "Переписка попадает в CRM компании — история не теряется.\n\n"
+    "Разделы: «👤 Профиль», «📁 Мои обращения», «🆕 Обращение», «🤖 Чат с ИИ», "
+    "«💬 Менеджер», «❓ Помощь», «🖥 Каталог», «⚙️ Настройки»."
+)
+#: Подсказка для случая «меню не видно»: Telegram показывает клавиатуру после команды.
+START_HINT = "Клавиатуру Telegram показывает после команды — отправьте боту /start."
 
 
 # --------------------------------------------------------------------------- настройки
@@ -255,6 +274,22 @@ def telegram_call(token: str, method: str, params: dict[str, Any] | None = None)
             return {"ok": False, "description": f"HTTP {exc.code}: {raw[:200]}"}
     except urllib.error.URLError as exc:
         return {"ok": False, "description": f"нет связи с Telegram: {exc.reason}"}
+
+
+async def setup_commands(bot: Any) -> None:
+    """Публикует список команд и описание бота в Telegram (кнопка «Меню» рядом с полем ввода).
+
+    Для клиента это часть «виджет-меню»: нажав на кнопку меню, он видит /profile, /appeals,
+    /chat, /manager. Ошибки не считаем критичными: без них бот продолжает работать.
+    """
+    from aiogram.types import BotCommand
+
+    with contextlib.suppress(Exception):
+        await bot.set_my_commands([BotCommand(command=name, description=text) for name, text in BOT_COMMANDS])
+    with contextlib.suppress(Exception):
+        await bot.set_my_short_description(short_description=BOT_ABOUT)
+    with contextlib.suppress(Exception):
+        await bot.set_my_description(description=BOT_ABOUT_LONG)
 
 
 def drop_webhook(config: LeadBotConfig) -> int:
@@ -477,6 +512,12 @@ async def run() -> int:
         await bot.session.close()
         return 3
 
+    await setup_commands(bot)
+    me = telegram_call(config.token, "getMe").get("result") or {}
+    username = me.get("username", "")
+    if username:
+        print(f"Бот @{username} запущен. Открыть чат: https://t.me/{username} · {START_HINT}")
+
     dispatcher = build_dispatcher(bot, config)
     manager_chats = parse_manager_chats(config)
     tasks = [asyncio.create_task(deliver_loop(bot, dispatcher))]
@@ -509,12 +550,16 @@ async def check() -> int:
     print(f"  API_URL:            {config.api_url}")
     print(f"  TG_MANAGER_CHAT_ID: {config.manager_chat_id or 'не задан (уведомления менеджеру в Telegram не пойдут)'}")
     print(f"  UI_URL:             {config.ui_url or 'не задан (ссылка на дашборд в уведомлениях будет короче)'}")
-    print(f"  Разделы меню:       {len(ui.widget_menu()) * 2} кнопок-виджет + inline-навигация на экранах")
+    # Команды и разделы печатаем даже без токена: так видно, какая версия диалога запущена
+    print(f"  Команды бота:       {' '.join('/' + name for name, _ in BOT_COMMANDS)}")
+    print(f"  Разделы виджета:    {' · '.join(label for row in ui.widget_menu() for label in row)}")
+    print(f"  Клиенту:            {START_HINT}")
     if config.token:
         # Диагностика Telegram: какой это бот и не мешает ли polling установленный webhook
         me = telegram_call(config.token, "getMe")
         if me.get("ok"):
-            print(f"  Бот в Telegram:     @{(me.get('result') or {}).get('username', '?')}")
+            username = (me.get("result") or {}).get("username", "")
+            print(f"  Бот в Telegram:     @{username or '?'}" + (f" — открыть https://t.me/{username}" if username else ""))
         else:
             print(f"  Бот в Telegram:     токен не принят — {me.get('description', '')}")
             return 1

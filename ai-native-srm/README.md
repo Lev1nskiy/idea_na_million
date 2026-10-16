@@ -132,7 +132,7 @@ FastAPI, Streamlit и Telegram — его можно запускать из CLI
 ## Тесты
 
 ```powershell
-python -m pytest -q                  # 441 тест, сеть не нужна (провайдеры и каналы подменяются)
+python -m pytest -q                  # 453 теста, сеть не нужна (провайдеры и каналы подменяются)
 python -m pytest tests\test_scenarios.py -q -v
 ```
 

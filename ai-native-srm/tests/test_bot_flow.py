@@ -167,10 +167,10 @@ def test_widget_labels_open_sections(label, expected):
 
 
 def test_callback_navigation_edits_message_in_place():
-    outs = press(session(), "nav:profile")
-    assert outs[0].edit is False  # обычный экран отправляем новым сообщением
-    settings = press(session(), "set:notify")
-    assert settings[0].edit is True  # тумблер настроек правит то же сообщение
+    """Нажатие кнопки не плодит сообщения: экран правится там же, где была кнопка."""
+    assert press(session(), "nav:profile")[0].edit is True
+    assert press(session(), "set:notify")[0].edit is True
+    assert say(session(), "👤 Профиль")[0].edit is False  # текст — это новое сообщение
 
 
 def test_unknown_command_and_unknown_callback_do_not_break_dialog():
