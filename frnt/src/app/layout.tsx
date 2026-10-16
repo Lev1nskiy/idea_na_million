@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Inter, JetBrains_Mono, Unbounded } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { BackendNotice } from "@/components/BackendNotice";
 
 // Шрифты с кириллическими подмножествами
 const unbounded = Unbounded({ subsets: ["latin", "cyrillic"], variable: "--font-unbounded", weight: ["400", "500", "600", "700"] });
@@ -24,7 +25,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         */}
         <div className="min-h-screen md:flex">
           <Nav />
-          <main className="min-w-0 flex-1 px-5 pb-10 pt-5 md:px-8">{children}</main>
+          <main className="min-w-0 flex-1 px-5 pb-10 pt-5 md:px-8">
+            {/* Сайт умеет работать на демо-данных — но об этом надо сказать вслух, иначе
+                «карточка из бота не дошла» выглядит как поломка бота, а не как mock-режим. */}
+            <BackendNotice />
+            {children}
+          </main>
         </div>
       </body>
     </html>

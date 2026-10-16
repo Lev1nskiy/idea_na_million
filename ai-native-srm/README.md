@@ -36,6 +36,7 @@ python -m channels.telegram_bot             # клиентский чат + ув
 python -m channels.telegram_lead_bot --check # бот-анкета: настройки и доступность API
 python -m channels.telegram_lead_bot         # бот-анкета: заявка → карточка клиента
 python scripts\check_lead_pipeline.py --site http://localhost:3000   # приёмка канала бот → CRM → сайт
+# сайт без CRM_BACKEND_URL работает на демо-данных: в интерфейсе появится предупреждение,
 python scripts\bind_telegram.py --list      # кто из клиентов привязан к Telegram
 ```
 
