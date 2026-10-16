@@ -279,6 +279,24 @@ def test_api_uses_any_openai_compatible_endpoint(monkeypatch: pytest.MonkeyPatch
     assert "response_format" not in payload
 
 
+@pytest.mark.parametrize(
+    ("base_url", "expected"),
+    [
+        ("https://api.openai.com/v1", "https://api.openai.com/v1/chat/completions"),
+        ("https://api.groq.com/openai/v1/", "https://api.groq.com/openai/v1/chat/completions"),
+        # Gemini отдаёт OpenAI-совместимый путь на /v1beta/openai — лишний /v1 там не нужен
+        (
+            "https://generativelanguage.googleapis.com/v1beta/openai/",
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        ),
+        # голый хост шлюза: дописываем привычный /v1
+        ("http://llm-gateway.internal", "http://llm-gateway.internal/v1/chat/completions"),
+    ],
+)
+def test_api_endpoint_is_normalized_for_any_gateway(base_url: str, expected: str) -> None:
+    assert AnyApiLLM("m", base_url, "k").url == expected
+
+
 def test_api_json_mode_asks_provider_for_strict_json(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _FakeHTTP(body={"choices": [{"message": {"content": '{"intent": "faq"}'}}]})
     _patch_urlopen(monkeypatch, fake)

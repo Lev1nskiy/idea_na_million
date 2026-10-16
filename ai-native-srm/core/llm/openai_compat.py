@@ -66,8 +66,13 @@ class OpenAICompatibleLLM(BaseLLM):
 
     @property
     def url(self) -> str:
-        """Эндпоинт генерации. База может быть и с `/v1`, и без — приводим к одному виду."""
-        if self._base_url.endswith("/v1"):
+        """Эндпоинт генерации: `{base}/chat/completions`.
+
+        Базу задают по-разному, поэтому приводим к одному виду: у OpenAI/DeepSeek/Groq путь
+        заканчивается на `/v1`, у Gemini — на `/v1beta/openai`, у Cloudflare — на
+        `/accounts/<id>/ai/v1`. Дан голый хост — дописываем привычный `/v1`.
+        """
+        if self._base_url.endswith(("/v1", "/openai")):
             return f"{self._base_url}/chat/completions"
         return f"{self._base_url}/v1/chat/completions"
 
