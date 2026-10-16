@@ -35,6 +35,7 @@ python -m channels.telegram_bot --check     # проверяет окружен�
 python -m channels.telegram_bot             # клиентский чат + уведомления менеджеру
 python -m channels.telegram_lead_bot --check # бот-анкета: настройки и доступность API
 python -m channels.telegram_lead_bot         # бот-анкета: заявка → карточка клиента
+python scripts\check_lead_pipeline.py --site http://localhost:3000   # приёмка канала бот → CRM → сайт
 python scripts\bind_telegram.py --list      # кто из клиентов привязан к Telegram
 ```
 
