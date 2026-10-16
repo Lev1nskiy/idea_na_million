@@ -10,15 +10,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Database, Download, FileJson, HardDriveDownload, ShieldAlert, Upload } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, type DataSummary } from "@/lib/api";
 import { Btn, Chip, Glass, PageHeader, cx } from "@/components/ui";
-
-interface Summary {
-  tables: Record<string, number>;
-  policy_version: number | null;
-  db_size_bytes: number;
-  db_file: string;
-}
 
 interface ImportResult {
   ok: boolean;
@@ -50,7 +43,7 @@ const fmtBytes = (bytes: number) => {
 
 export default function DataPage() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [summary, setSummary] = useState<Summary | null>(null);
+  const [summary, setSummary] = useState<DataSummary | null>(null);
   const [masked, setMasked] = useState(true);
   const [mode, setMode] = useState<"merge" | "replace">("merge");
   const [dryRun, setDryRun] = useState(true);
@@ -60,12 +53,11 @@ export default function DataPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Все запросы идут через api.… (siteFetch): он прикладывает токен предпросмотра, иначе
+  // внутри фрейма cookie не отдаётся и страница получала бы 401.
   const loadSummary = useCallback(async () => {
     try {
-      const res = await fetch("/api/data/summary", { cache: "no-store" });
-      const data = (await res.json()) as Summary & { error?: string };
-      if (res.ok) setSummary(data);
-      else setNotice(data.error ?? "Не удалось прочитать состояние БД.");
+      setSummary(await api.dataSummary());
     } catch {
       setNotice("Бэкенд не отвечает — состояние БД не прочитано.");
     }
@@ -89,8 +81,7 @@ export default function DataPage() {
     setBusy(kind);
     setNotice(null);
     try {
-      const url = kind === "export" ? `/api/data/export?mask=${masked}` : "/api/data/backup";
-      const res = await fetch(url, { cache: "no-store" });
+      const res = kind === "export" ? await api.dataExport(masked) : await api.dataBackup();
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         setNotice(data.error ?? `Не удалось скачать (${res.status}).`);
@@ -123,10 +114,7 @@ export default function DataPage() {
     setResult(null);
     setNotice(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const query = new URLSearchParams({ mode, policy: "false", dry_run: String(dryRun) });
-      const res = await fetch(`/api/data/import?${query}`, { method: "POST", body: form });
+      const res = await api.dataImport(file, { mode, dryRun });
       const data = (await res.json().catch(() => ({}))) as ImportResult;
       if (!res.ok) {
         setResult({ ok: false, error: data.error ?? `Импорт отклонён (${res.status}).` });
@@ -164,7 +152,7 @@ export default function DataPage() {
       <PageHeader
         title="Данные"
         sub="База целиком: скачать дампом или снимком SQLite, загрузить дамп из другого контура. Тот же перенос, что и в admin-API и CLI — правила одни."
-        right={summary && <Chip tone="mint">Политика v{summary.policy_version ?? "—"}</Chip>}
+        right={summary && <Chip tone="mint">Политика v{summary.policyVersion || "—"}</Chip>}
       />
 
       <Glass className="p-5">
@@ -187,7 +175,7 @@ export default function DataPage() {
               ))}
             </div>
             <p className="mt-3 text-[12px] text-dim">
-              Файл: <span className="text-ink/80">{summary.db_file}</span> · размер {fmtBytes(summary.db_size_bytes)}
+              Файл: <span className="text-ink/80">{summary.dbFile}</span> · размер {fmtBytes(summary.dbSizeBytes)}
             </p>
           </>
         ) : (

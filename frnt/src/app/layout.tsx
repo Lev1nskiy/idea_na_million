@@ -18,7 +18,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru" className={`${unbounded.variable} ${inter.variable} ${jbmono.variable}`}>
       <body className="bg-ink text-txt antialiased">
-        <div className="flex min-h-screen">
+        {/*
+          md:flex — на широком экране сайдбар и контент стоят рядом, на узком компактная
+          шапка с меню (Nav) встаёт над страницей и ничего не перекрывает.
+        */}
+        <div className="min-h-screen md:flex">
           <Nav />
           <main className="min-w-0 flex-1 px-5 pb-10 pt-5 md:px-8">{children}</main>
         </div>
