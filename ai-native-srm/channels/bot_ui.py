@@ -44,6 +44,20 @@ TOPICS: tuple[tuple[str, str, str], ...] = (
 )
 TOPIC_BY_SLUG = {slug: (label, hint) for slug, label, hint in TOPICS}
 
+#: Разделы каталога на витрине: как группировать категории из `data/catalog.json`,
+#: чтобы клиент видел 6 понятных разделов, а не 17 технических.
+CATALOG_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("computers", "💻 Компьютеры и мониторы", ("laptop", "desktop", "monitor")),
+    ("servers", "🧩 Комплектующие, серверы, СХД", ("component", "server", "storage")),
+    ("network", "🌐 Сеть, питание, ВКС", ("network", "power", "interactive")),
+    ("print", "🖨 Печать и сканирование", ("mfu", "printer", "scanner")),
+    ("office", "📦 Расходники и офис", ("consumable", "office")),
+    ("software", "💿 ПО, сервис и услуги", ("software", "service")),
+)
+CATALOG_GROUP_TITLES = {key: title for key, title, _ in CATALOG_GROUPS}
+CATALOG_GROUP_KEYS = {key: keys for key, _, keys in CATALOG_GROUPS}
+CATALOG_PAGE = 6  #: позиций на экране раздела: больше — сообщение становится простыней
+
 STATUS_ICON = {
     "ACTIVE": "🤖",
     "HOLD": "⏳",
@@ -392,16 +406,76 @@ def faq_screen(sections: list[tuple[str, str]], index: int) -> Screen:
 
 
 def catalog_screen(items: list[dict]) -> Screen:
-    """Каталог и цены: позиции из того же справочника, которым пользуется ИИ."""
-    lines = ["🖥 <b>Каталог и цены</b>\n", "Наличие и цены — из справочника CRM, по нему же отвечает ИИ.\n"]
+    """Каталог и цены: обзор по разделам техники, а не сплошной список.
+
+    Справочник вырос до сотни позиций, поэтому вход в каталог — это разделы
+    («Ноутбуки», «Серверы», «Сетевое оборудование»…), а не первые попавшиеся строки.
+    """
+    counts: dict[str, int] = {}
+    titles: dict[str, str] = {}
+    for item in items:
+        key = str(item.get("category") or "other")
+        titles.setdefault(key, str(item.get("category_title") or "Прочее"))
+        counts[key] = counts.get(key, 0) + 1
+
+    lines = [
+        "🖥 <b>Каталог и цены</b>\n",
+        "Наличие и цены — из справочника CRM, по нему же отвечает ИИ.",
+        f"Всего позиций: <b>{len(items)}</b> в {len(counts)} разделах.\n",
+    ]
     buttons: list[tuple[Button, ...]] = []
-    for item in items[:8]:
-        stock = item.get("stock", 0)
-        availability = f"в наличии: {stock}" if stock else "под заказ"
-        lines.append(f"• <b>{item['name']}</b> ({item['sku']})\n   {money(item['price'])} ₽ · {availability}")
-        buttons.append((btn(f"Спросить про {item['sku']}", f"ap:ask:{item['sku']}"),))
+    for group_key, group_title, keys in CATALOG_GROUPS:
+        selected = [key for key in keys if counts.get(key)]
+        if not selected:
+            continue
+        total = sum(counts[key] for key in selected)
+        titles_line = ", ".join(f"{titles[key]} ({counts[key]})" for key in selected)
+        lines.append(f"• <b>{group_title}</b> — {total}\n   <i>{titles_line}</i>")
+        buttons.append((btn(f"{group_title} · {total}", f"cat:{group_key}:0"),))
+    leftovers = [key for key in counts if key not in {k for _, _, keys in CATALOG_GROUPS for k in keys}]
+    if leftovers:
+        total = sum(counts[key] for key in leftovers)
+        lines.append(f"• <b>Прочее</b> — {total}\n   <i>{', '.join(titles[key] for key in leftovers)}</i>")
+        buttons.append((btn(f"Прочее · {total}", "cat:other:0"),))
+
     lines.append("\nНужна скидка или счёт — открывайте обращение: этим занимается менеджер.")
-    return Screen("\n".join(lines), rows(*buttons[:5], (btn("🆕 Обращение", "nav:new"), btn("🏠 В меню", "nav:menu"))))
+    return Screen("\n".join(lines), rows(*buttons, (btn("🆕 Обращение", "nav:new"), btn("🏠 В меню", "nav:menu"))))
+
+
+def catalog_group_screen(group_title: str, items: list[dict], page: int = 0) -> Screen:
+    """Позиции раздела: по `CATALOG_PAGE` штук на экран, листалка и кнопка «спросить» у каждой."""
+    per_page = CATALOG_PAGE
+    pages = max(1, -(-len(items) // per_page))
+    page = page % pages
+    window = items[page * per_page : (page + 1) * per_page]
+
+    lines = [f"🖥 <b>{group_title}</b>\n"]
+    buttons: list[tuple[Button, ...]] = []
+    if not window:
+        lines.append("<i>В этом разделе пока нет позиций.</i>")
+    for item in window:
+        stock = item.get("stock")
+        warranty = item.get("warranty_months")
+        details = []
+        if stock is None:
+            details.append("услуга")
+        elif stock:
+            details.append(f"в наличии: {stock}")
+        else:
+            details.append("под заказ")
+        if warranty:
+            details.append(f"гарантия {warranty} мес.")
+        lines.append(f"• <b>{item['name']}</b> ({item['sku']})\n   {money(item['price'])} ₽ · {', '.join(details)}")
+        buttons.append((btn(f"Спросить про {item['sku']}", f"ap:ask:{item['sku']}"),))
+
+    if pages > 1:
+        lines.append(f"\n<i>Страница {page + 1} из {pages}</i>")
+        buttons.append(
+            (btn("◀️ Назад", f"cat_page:{page - 1}"), btn("Ещё ▶️", f"cat_page:{page + 1}"))
+        )
+    buttons.append((btn("🆕 Обращение", "nav:new"), btn("◀️ Разделы", "nav:catalog")))
+    buttons.append((btn("🧑‍💼 Менеджер", "nav:manager"), btn("🏠 В меню", "nav:menu")))
+    return Screen("\n".join(lines), rows(*buttons))
 
 
 def settings_screen(notify: bool, techie: bool) -> Screen:

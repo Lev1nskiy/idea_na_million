@@ -49,10 +49,43 @@ def reload_data() -> None:
     _quote_templates.cache_clear()
 
 
-def catalog_items(limit: int = 10) -> list[dict[str, Any]]:
-    """Позиции каталога для витрины (бот, экран «Каталог и цены»): sku, название, цена, наличие."""
+def catalog_categories() -> list[dict[str, Any]]:
+    """Разделы каталога в порядке витрины: [{key, title, count}].
+
+    Категории объявлены в самом `data/catalog.json`: справочник можно заменить через
+    `PUT /api/admin/reference-data/catalog`, и витрина подстроится без правок кода.
+    """
+    payload = _read_json("catalog.json")
+    counts: dict[str, int] = {}
+    for item in payload["items"]:
+        counts[item["category"]] = counts.get(item["category"], 0) + 1
+    declared = payload.get("categories") or [{"key": key} for key in counts]
+    rows: list[dict[str, Any]] = []
+    for entry in declared:
+        key = str(entry["key"])
+        if not counts.get(key):
+            continue  # раздел без позиций на витрине не показываем
+        rows.append({"key": key, "title": entry.get("title") or key, "count": counts[key]})
+    return rows
+
+
+def catalog_category_titles() -> dict[str, str]:
+    """key категории → человеческое название (для строк витрины и ответов ИИ)."""
+    titles = {row["key"]: row["title"] for row in catalog_categories()}
+    for item in _read_json("catalog.json")["items"]:
+        titles.setdefault(item["category"], item["category"])
+    return titles
+
+
+def catalog_items(limit: int | None = None, category: str | None = None) -> list[dict[str, Any]]:
+    """Позиции каталога для витрины (бот, экран «Каталог и цены»).
+
+    Без `limit` возвращается весь каталог: витрине нужны все разделы, а не первые десять
+    позиций. `category` — фильтр по разделу каталога (см. `catalog_categories`).
+    """
     items = _read_json("catalog.json")["items"]
-    return [
+    titles = catalog_category_titles()
+    rows = [
         {
             "sku": item["sku"],
             "name": item["name"],
@@ -60,9 +93,13 @@ def catalog_items(limit: int = 10) -> list[dict[str, Any]]:
             "stock": item.get("stock", 0),
             "lead_time_days": item.get("lead_time_days"),
             "warranty_months": item.get("warranty_months"),
+            "category": item["category"],
+            "category_title": titles.get(item["category"], item["category"]),
         }
-        for item in items[:limit]
+        for item in items
+        if category is None or item["category"] == category
     ]
+    return rows if limit is None else rows[:limit]
 
 
 def get_client(client_id: int) -> dict[str, Any] | None:
@@ -80,9 +117,23 @@ _STOP = {
     "дайте", "дадите", "скидку", "скидка", "скидки", "ли", "это", "или", "не", "от", "до",
 }
 _CATEGORY_WORDS = {
-    "mfu": "мфу", "printer": "принтер", "scanner": "сканер",
+    "laptop": "ноутбук ультрабук ноут",
+    "desktop": "пк компьютер моноблок рабочая станция системный блок тонкий клиент",
+    "monitor": "монитор экран проектор кронштейн",
+    "component": "комплектующие процессор память озу ssd накопитель диск видеокарта материнская плата корпус кулер блок питания апгрейд",
+    "server": "сервер серверная xeon стойка виртуализация",
+    "storage": "схд хранилище nas дисковая полка стример архив бэкап резервное копирование",
+    "network": "сеть коммутатор свитч маршрутизатор роутер точка доступа wifi wi-fi межсетевой экран vpn патч-корд оптика poe",
+    "peripheral": "периферия клавиатура мышь мышка гарнитура веб-камера док-станция хаб сканер штрихкодов планшет подписи",
+    "power": "питание ибп бесперебойник батарея ро",
+    "interactive": "интерактивная панель вкс видеоконференция переговорная совещание",
+    "mfu": "мфу",
+    "printer": "принтер печать этикетки финишер печатное оборудование",
+    "scanner": "сканер сканирование",
     "consumable": "картридж тонер расходник расходные бумага барабан",
-    "service": "сервис обслуживание поддержка",
+    "office": "офис шредер ламинатор переплётчик резак",
+    "software": "по лицензия программное обеспечение подписка антивирус windows office 1с бухгалтерия",
+    "service": "сервис обслуживание поддержка монтаж настройка обучение пусконаладка",
 }
 
 

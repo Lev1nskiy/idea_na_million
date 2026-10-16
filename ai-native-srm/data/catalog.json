@@ -1,5 +1,75 @@
 {
   "currency": "RUB",
+  "categories": [
+    {
+      "key": "laptop",
+      "title": "Ноутбуки"
+    },
+    {
+      "key": "desktop",
+      "title": "ПК, моноблоки и рабочие станции"
+    },
+    {
+      "key": "monitor",
+      "title": "Мониторы и проекторы"
+    },
+    {
+      "key": "component",
+      "title": "Комплектующие"
+    },
+    {
+      "key": "server",
+      "title": "Серверы"
+    },
+    {
+      "key": "storage",
+      "title": "СХД и накопители"
+    },
+    {
+      "key": "network",
+      "title": "Сетевое оборудование"
+    },
+    {
+      "key": "peripheral",
+      "title": "Периферия и аксессуары"
+    },
+    {
+      "key": "power",
+      "title": "Питание и ИБП"
+    },
+    {
+      "key": "interactive",
+      "title": "Интерактивные панели и ВКС"
+    },
+    {
+      "key": "mfu",
+      "title": "МФУ"
+    },
+    {
+      "key": "printer",
+      "title": "Принтеры и печатные системы"
+    },
+    {
+      "key": "scanner",
+      "title": "Сканеры"
+    },
+    {
+      "key": "consumable",
+      "title": "Расходные материалы"
+    },
+    {
+      "key": "office",
+      "title": "Оборудование для офиса"
+    },
+    {
+      "key": "software",
+      "title": "Программное обеспечение и лицензии"
+    },
+    {
+      "key": "service",
+      "title": "Услуги, монтаж и сервис"
+    }
+  ],
   "items": [
     {
       "sku": "PX-M4200",
@@ -413,7 +483,7 @@
     {
       "sku": "UPS-1000",
       "name": "ИБП ПауэрФокс UPS-1000",
-      "category": "office",
+      "category": "power",
       "price": 12400,
       "stock": 14,
       "lead_time_days": 1,
@@ -449,7 +519,7 @@
     {
       "sku": "FIN-500",
       "name": "Финишер ЛазерФокс FIN-500",
-      "category": "office",
+      "category": "printer",
       "price": 54000,
       "stock": 2,
       "lead_time_days": 7,
@@ -478,6 +548,1876 @@
       "lead_time_days": 0,
       "description": "Выезд инженера, ТО 4 раза/год, расходники −10%",
       "compat": []
+    },
+    {
+      "sku": "NB-14L",
+      "name": "Ноутбук НоутФокс 14 Light (N100, 8/256)",
+      "category": "laptop",
+      "price": 42900,
+      "stock": 25,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "screen_inch": 14,
+        "cpu": "Intel N100",
+        "ram_gb": 8,
+        "storage": "256 ГБ SSD",
+        "weight_kg": 1.4,
+        "battery_h": 8
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Бюджетный ноутбук для офисных задач, почты и 1С: лёгкий и тихий."
+    },
+    {
+      "sku": "NB-14B",
+      "name": "Ноутбук НоутФокс 14 Base (i5-1335U, 16/512)",
+      "category": "laptop",
+      "price": 74900,
+      "stock": 18,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "screen_inch": 14,
+        "cpu": "Intel Core i5-1335U",
+        "ram_gb": 16,
+        "storage": "512 ГБ SSD",
+        "weight_kg": 1.35,
+        "battery_h": 11
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Рабочая лошадка офиса: 14\" FHD, 16 ГБ памяти, два года гарантии."
+    },
+    {
+      "sku": "NB-14P",
+      "name": "Ноутбук НоутФокс 14 Pro (i7-1360P, 32/1 ТБ)",
+      "category": "laptop",
+      "price": 129900,
+      "stock": 7,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "screen_inch": 14,
+        "cpu": "Intel Core i7-1360P",
+        "ram_gb": 32,
+        "storage": "1 ТБ SSD",
+        "weight_kg": 1.4,
+        "battery_h": 10
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Для руководителей и аналитиков: много памяти, матовый экран, док-станция USB-C."
+    },
+    {
+      "sku": "NB-15B",
+      "name": "Ноутбук НоутФокс 15 Base (Ryzen 5 7530U, 16/512)",
+      "category": "laptop",
+      "price": 79900,
+      "stock": 12,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "screen_inch": 15.6,
+        "cpu": "AMD Ryzen 5 7530U",
+        "ram_gb": 16,
+        "storage": "512 ГБ SSD",
+        "weight_kg": 1.7,
+        "battery_h": 9
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Большой экран и цифровой блок — удобно для бухгалтерии и складского учёта."
+    },
+    {
+      "sku": "NB-16C",
+      "name": "Ноутбук НоутФокс 16 Creator (Ryzen 7, RTX 4060, 32/1 ТБ)",
+      "category": "laptop",
+      "price": 189900,
+      "stock": 4,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "screen_inch": 16,
+        "resolution": "2560×1600",
+        "cpu": "AMD Ryzen 7 8845HS",
+        "ram_gb": 32,
+        "storage": "1 ТБ SSD",
+        "gpu": "GeForce RTX 4060 8 ГБ",
+        "weight_kg": 2.1
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux"
+      ],
+      "description": "Для дизайна, монтажа и CAD: цветоточный экран 2.5K и дискретная графика."
+    },
+    {
+      "sku": "NB-14U",
+      "name": "Ультрабук НоутФокс Air 14 (i5, 16/1 ТБ)",
+      "category": "laptop",
+      "price": 104900,
+      "stock": 9,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "screen_inch": 14,
+        "cpu": "Intel Core i5-1340P",
+        "ram_gb": 16,
+        "storage": "1 ТБ SSD",
+        "weight_kg": 1.1,
+        "battery_h": 13
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Командировочный ультрабук: 1,1 кг, полный день автономной работы."
+    },
+    {
+      "sku": "NB-17W",
+      "name": "Ноутбук НоутФокс 17 Workstation (i9, 64/2 ТБ)",
+      "category": "laptop",
+      "price": 249900,
+      "stock": 2,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "specs": {
+        "screen_inch": 17.3,
+        "cpu": "Intel Core i9-13980HX",
+        "ram_gb": 64,
+        "storage": "2 ТБ SSD",
+        "gpu": "GeForce RTX 4070 8 ГБ",
+        "weight_kg": 2.9
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Linux"
+      ],
+      "description": "Мобильная станция для расчётов, 3D и видео — вместо настольной."
+    },
+    {
+      "sku": "NB-ACC-65",
+      "name": "Блок питания для ноутбуков 65 Вт (USB-C)",
+      "category": "laptop",
+      "price": 3900,
+      "stock": 60,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "мощность_вт": 65,
+        "разъём": "USB-C Power Delivery"
+      },
+      "compat": [
+        "НоутФокс",
+        "универсальный USB-C"
+      ],
+      "description": "Запасной блок питания в переговорную или для второго рабочего места."
+    },
+    {
+      "sku": "PC-550",
+      "name": "ПК ДескФокс 550 Office (i5-12400, 16/512)",
+      "category": "desktop",
+      "price": 59900,
+      "stock": 15,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "cpu": "Intel Core i5-12400",
+        "ram_gb": 16,
+        "storage": "512 ГБ SSD",
+        "form_factor": "Micro-ATX"
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Офисный ПК для документов, 1С и браузера: тихий корпус, три года гарантии."
+    },
+    {
+      "sku": "PC-770",
+      "name": "ПК ДескФокс 770 Business (i7-13700, 32/1 ТБ)",
+      "category": "desktop",
+      "price": 109900,
+      "stock": 8,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "cpu": "Intel Core i7-13700",
+        "ram_gb": 32,
+        "storage": "1 ТБ SSD",
+        "form_factor": "Micro-ATX"
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Для 1С с большой базой, отчётов и многозадачной работы."
+    },
+    {
+      "sku": "PC-990G",
+      "name": "ПК ДескФокс 990 Pro (i9, RTX 4070, 64/2 ТБ)",
+      "category": "desktop",
+      "price": 219900,
+      "stock": 3,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "specs": {
+        "cpu": "Intel Core i9-13900K",
+        "ram_gb": 64,
+        "storage": "2 ТБ SSD",
+        "gpu": "GeForce RTX 4070 12 ГБ"
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Linux"
+      ],
+      "description": "Для инженерных расчётов, рендера и работы с графикой."
+    },
+    {
+      "sku": "AIO-24",
+      "name": "Моноблок ВижнФокс AIO-24 (23.8\" FHD, i5, 16/512)",
+      "category": "desktop",
+      "price": 84900,
+      "stock": 6,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "screen_inch": 23.8,
+        "cpu": "Intel Core i5-1235U",
+        "ram_gb": 16,
+        "storage": "512 ГБ SSD"
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Рабочее место без системного блока — меньше проводов, аккуратный стол."
+    },
+    {
+      "sku": "AIO-27",
+      "name": "Моноблок ВижнФокс AIO-27 (27\" QHD, i7, 32/1 ТБ)",
+      "category": "desktop",
+      "price": 149900,
+      "stock": 3,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "screen_inch": 27,
+        "resolution": "2560×1440",
+        "cpu": "Intel Core i7-1260P",
+        "ram_gb": 32,
+        "storage": "1 ТБ SSD"
+      },
+      "compat": [
+        "Windows 11 Pro",
+        "Windows 10",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Большой экран для проектировщиков, диспетчеров и руководителей."
+    },
+    {
+      "sku": "WS-700",
+      "name": "Рабочая станция ДескФокс WS-700 (Xeon W, 64/2 ТБ)",
+      "category": "desktop",
+      "price": 349900,
+      "stock": 2,
+      "lead_time_days": 5,
+      "warranty_months": 36,
+      "specs": {
+        "cpu": "Intel Xeon W5-2455X",
+        "ram_gb": 64,
+        "storage": "2 ТБ NVMe",
+        "video": "профессиональная графика 12 ГБ"
+      },
+      "compat": [
+        "Windows 11 Pro for Workstations",
+        "Linux"
+      ],
+      "description": "Для CAD/CAM, BIM и научных расчётов, сертифицированные драйверы."
+    },
+    {
+      "sku": "TB-400",
+      "name": "Тонкий клиент ДескФокс TB-400",
+      "category": "desktop",
+      "price": 24900,
+      "stock": 30,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "cpu": "Intel N100",
+        "ram_gb": 8,
+        "storage": "64 ГБ eMMC",
+        "ports": "2×USB-C, 4×USB-A, 2×HDMI"
+      },
+      "compat": [
+        "Windows 11 IoT",
+        "Linux",
+        "терминальные серверы RDP"
+      ],
+      "description": "Дешёвое рабочее место для терминального доступа и 1С через RDP."
+    },
+    {
+      "sku": "MON-24F",
+      "name": "Монитор ВижнФокс 24F (23.8\" FHD IPS, 100 Гц)",
+      "category": "monitor",
+      "price": 12900,
+      "stock": 40,
+      "lead_time_days": 1,
+      "warranty_months": 36,
+      "specs": {
+        "diagonal": 23.8,
+        "resolution": "1920×1080",
+        "panel": "IPS",
+        "hz": 100,
+        "ports": "HDMI, DisplayPort, VGA"
+      },
+      "compat": [
+        "Windows 11",
+        "macOS",
+        "Linux"
+      ],
+      "description": "Базовый офисный монитор с регулировкой наклона."
+    },
+    {
+      "sku": "MON-27Q",
+      "name": "Монитор ВижнФокс 27Q (27\" QHD IPS, 75 Гц)",
+      "category": "monitor",
+      "price": 22900,
+      "stock": 22,
+      "lead_time_days": 1,
+      "warranty_months": 36,
+      "specs": {
+        "diagonal": 27,
+        "resolution": "2560×1440",
+        "panel": "IPS",
+        "hz": 75,
+        "ports": "2×HDMI, DisplayPort"
+      },
+      "compat": [
+        "Windows 11",
+        "macOS",
+        "Linux"
+      ],
+      "description": "Популярный размер для офиса: больше текста на экране без лупы."
+    },
+    {
+      "sku": "MON-27U",
+      "name": "Монитор ВижнФокс 27U (27\" 4K UHD, IPS)",
+      "category": "monitor",
+      "price": 39900,
+      "stock": 10,
+      "lead_time_days": 2,
+      "warranty_months": 36,
+      "specs": {
+        "diagonal": 27,
+        "resolution": "3840×2160",
+        "panel": "IPS",
+        "hz": 60,
+        "ports": "2×HDMI, DisplayPort"
+      },
+      "compat": [
+        "Windows 11",
+        "macOS"
+      ],
+      "description": "4K для чертежей, карт и таблиц на весь экран."
+    },
+    {
+      "sku": "MON-32U",
+      "name": "Монитор ВижнФокс 32U (31.5\" 4K, USB-C 90 Вт)",
+      "category": "monitor",
+      "price": 54900,
+      "stock": 6,
+      "lead_time_days": 2,
+      "warranty_months": 36,
+      "specs": {
+        "diagonal": 31.5,
+        "resolution": "3840×2160",
+        "panel": "IPS",
+        "usb_c_power_w": 90
+      },
+      "compat": [
+        "Windows 11",
+        "macOS"
+      ],
+      "description": "Монитор с питанием ноутбука по USB-C — одно рабочее место, один кабель."
+    },
+    {
+      "sku": "MON-34W",
+      "name": "Монитор ВижнФокс 34W (34\" WQHD, изогнутый)",
+      "category": "monitor",
+      "price": 64900,
+      "stock": 4,
+      "lead_time_days": 2,
+      "warranty_months": 36,
+      "specs": {
+        "diagonal": 34,
+        "resolution": "3440×1440",
+        "panel": "VA",
+        "curve": "1500R"
+      },
+      "compat": [
+        "Windows 11",
+        "macOS"
+      ],
+      "description": "Широкий экран вместо двух мониторов: удобно для таблиц и графиков."
+    },
+    {
+      "sku": "MON-KIT-2",
+      "name": "Комплект «Два монитора» 2×24\" + стойка",
+      "category": "monitor",
+      "price": 31900,
+      "stock": 8,
+      "lead_time_days": 2,
+      "warranty_months": 36,
+      "specs": {
+        "состав": "2× ВижнФокс 24F, двойная стойка, кабели"
+      },
+      "compat": [
+        "Windows 11",
+        "macOS",
+        "Linux"
+      ],
+      "description": "Два экрана и стойка одним комплектом — для бухгалтерии и диспетчеров."
+    },
+    {
+      "sku": "PRJ-400",
+      "name": "Проектор ВижнФокс PRJ-400 (FHD, 4000 лм)",
+      "category": "monitor",
+      "price": 47900,
+      "stock": 5,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "specs": {
+        "разрешение": "1920×1080",
+        "brightness_lm": 4000,
+        "lamp_h": 10000,
+        "ports": "HDMI ×2, VGA, USB"
+      },
+      "compat": [
+        "Windows 11",
+        "macOS"
+      ],
+      "description": "Проектор для переговорной и учебного класса."
+    },
+    {
+      "sku": "PRJ-5K",
+      "name": "Проектор ВижнФокс PRJ-5K (4K, 5000 лм)",
+      "category": "monitor",
+      "price": 129900,
+      "stock": 2,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "specs": {
+        "разрешение": "3840×2160",
+        "brightness_lm": 5000,
+        "lamp_h": 20000
+      },
+      "compat": [
+        "Windows 11",
+        "macOS"
+      ],
+      "description": "Яркий 4K-проектор для конференц-зала с большим экраном."
+    },
+    {
+      "sku": "MON-ARM",
+      "name": "Кронштейн-рука для монитора (до 32\", 9 кг)",
+      "category": "monitor",
+      "price": 5900,
+      "stock": 35,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "ves_kg": 9,
+        "vesa": "75×75, 100×100"
+      },
+      "compat": [
+        "универсальный"
+      ],
+      "description": "Экономит место на столе и снимает нагрузку с шеи."
+    },
+    {
+      "sku": "CPU-I5-13400",
+      "name": "Процессор Intel Core i5-13400F (LGA1700)",
+      "category": "component",
+      "price": 21900,
+      "stock": 20,
+      "lead_time_days": 1,
+      "warranty_months": 36,
+      "specs": {
+        "cores": 10,
+        "threads": 16,
+        "socket": "LGA1700",
+        "tdp_w": 65
+      },
+      "compat": [
+        "материнские платы B660/B760/Z790"
+      ],
+      "description": "Апгрейд офисного ПК: заметный прирост в 1С и браузере."
+    },
+    {
+      "sku": "CPU-I7-13700",
+      "name": "Процессор Intel Core i7-13700 (LGA1700)",
+      "category": "component",
+      "price": 42900,
+      "stock": 9,
+      "lead_time_days": 1,
+      "warranty_months": 36,
+      "specs": {
+        "cores": 16,
+        "threads": 24,
+        "socket": "LGA1700",
+        "tdp_w": 65
+      },
+      "compat": [
+        "материнские платы B660/B760/Z790"
+      ],
+      "description": "Для тяжёлых баз 1С, отчётов и рабочих станций."
+    },
+    {
+      "sku": "MB-B760",
+      "name": "Материнская плата B760M DDR5 (Micro-ATX)",
+      "category": "component",
+      "price": 14900,
+      "stock": 14,
+      "lead_time_days": 1,
+      "warranty_months": 36,
+      "specs": {
+        "socket": "LGA1700",
+        "memory": "DDR5, до 128 ГБ",
+        "slots_m2": 2,
+        "lan": "2.5 Гбит/с"
+      },
+      "compat": [
+        "Intel 12/13 поколение"
+      ],
+      "description": "Плата под апгрейд с запасом по памяти и накопителям."
+    },
+    {
+      "sku": "RAM-16D5",
+      "name": "Память DDR5 16 ГБ 5600 МГц",
+      "category": "component",
+      "price": 5900,
+      "stock": 60,
+      "lead_time_days": 1,
+      "warranty_months": 120,
+      "specs": {
+        "объём": "16 ГБ",
+        "частота": "5600 МГц",
+        "тип": "DDR5 DIMM"
+      },
+      "compat": [
+        "материнские платы DDR5"
+      ],
+      "description": "Апгрейд от 8 до 16 ГБ — самый заметный прирост для офисных задач."
+    },
+    {
+      "sku": "RAM-32D5",
+      "name": "Память DDR5 32 ГБ 5600 МГц",
+      "category": "component",
+      "price": 11900,
+      "stock": 30,
+      "lead_time_days": 1,
+      "warranty_months": 120,
+      "specs": {
+        "объём": "32 ГБ",
+        "частота": "5600 МГц",
+        "тип": "DDR5 DIMM"
+      },
+      "compat": [
+        "материнские платы DDR5"
+      ],
+      "description": "Для 1С с большой базой, САПР и виртуальных машин."
+    },
+    {
+      "sku": "SSD-512",
+      "name": "SSD NVMe 512 ГБ (M.2, 3500 МБ/с)",
+      "category": "component",
+      "price": 5400,
+      "stock": 80,
+      "lead_time_days": 1,
+      "warranty_months": 60,
+      "specs": {
+        "объём": "512 ГБ",
+        "интерфейс": "PCIe 4.0 ×4",
+        "чтение": "3500 МБ/с"
+      },
+      "compat": [
+        "Windows 11",
+        "Linux"
+      ],
+      "description": "Замена жёсткого диска в старом ПК — система грузится за секунды."
+    },
+    {
+      "sku": "SSD-1T",
+      "name": "SSD NVMe 1 ТБ (M.2, 5000 МБ/с)",
+      "category": "component",
+      "price": 8900,
+      "stock": 55,
+      "lead_time_days": 1,
+      "warranty_months": 60,
+      "specs": {
+        "объём": "1 ТБ",
+        "интерфейс": "PCIe 4.0 ×4",
+        "чтение": "5000 МБ/с"
+      },
+      "compat": [
+        "Windows 11",
+        "Linux"
+      ],
+      "description": "Основной накопитель рабочего места: система, 1С и документы на одном диске."
+    },
+    {
+      "sku": "HDD-4T",
+      "name": "Жёсткий диск 4 ТБ SATA 7200 об/мин",
+      "category": "component",
+      "price": 12900,
+      "stock": 24,
+      "lead_time_days": 1,
+      "warranty_months": 36,
+      "specs": {
+        "объём": "4 ТБ",
+        "интерфейс": "SATA III",
+        "обороты": 7200
+      },
+      "compat": [
+        "Windows Server",
+        "Linux",
+        "NAS"
+      ],
+      "description": "Для архивов, бэкапов и файловых хранилищ."
+    },
+    {
+      "sku": "GPU-RT4060",
+      "name": "Видеокарта GeForce RTX 4060 8 ГБ",
+      "category": "component",
+      "price": 44900,
+      "stock": 7,
+      "lead_time_days": 2,
+      "warranty_months": 36,
+      "specs": {
+        "memory_gb": 8,
+        "интерфейс": "PCIe 4.0 ×8",
+        "выходы": "3×DP, HDMI"
+      },
+      "compat": [
+        "Windows 11",
+        "Linux"
+      ],
+      "description": "Для графики, CAD и небольших нейросетевых задач на рабочей станции."
+    },
+    {
+      "sku": "CASE-MT",
+      "name": "Корпус Micro-ATX с блоком питания 500 Вт",
+      "category": "component",
+      "price": 7900,
+      "stock": 25,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "form_factor": "Micro-ATX",
+        "psu_w": 500,
+        "отсеки": "2×3.5\", 2×2.5\""
+      },
+      "compat": [
+        "Micro-ATX",
+        "Mini-ITX"
+      ],
+      "description": "Корпус с блоком питания — для сборки или замены старого."
+    },
+    {
+      "sku": "PSU-750",
+      "name": "Блок питания 750 Вт 80+ Gold",
+      "category": "component",
+      "price": 12900,
+      "stock": 15,
+      "lead_time_days": 1,
+      "warranty_months": 60,
+      "specs": {
+        "power_w": 750,
+        "certificate": "80+ Gold",
+        "modular": true
+      },
+      "compat": [
+        "ATX"
+      ],
+      "description": "Стабильное питание рабочей станции и запас под апгрейд."
+    },
+    {
+      "sku": "COOL-4P",
+      "name": "Кулер башенный, 4 тепловые трубки",
+      "category": "component",
+      "price": 3900,
+      "stock": 40,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "tdp_w": 180,
+        "socket": "LGA1700/1200, AM4/AM5",
+        "height_mm": 155
+      },
+      "compat": [
+        "LGA1700",
+        "AM4",
+        "AM5"
+      ],
+      "description": "Тихая замена штатного кулера — меньше шума в офисе."
+    },
+    {
+      "sku": "SRV-1U-B",
+      "name": "Сервер СерверФокс 1U Base (Xeon E-2336, 32/2×480 SSD)",
+      "category": "server",
+      "price": 289900,
+      "stock": 3,
+      "lead_time_days": 14,
+      "warranty_months": 36,
+      "specs": {
+        "form_factor": "1U",
+        "cpu": "Intel Xeon E-2336",
+        "ram_gb": 32,
+        "storage": "2×480 ГБ SSD (RAID 1)",
+        "psu": "1×500 Вт",
+        "lan": "2×1 Гбит/с"
+      },
+      "compat": [
+        "Windows Server 2022",
+        "Linux (Debian/Ubuntu)",
+        "1С:Предприятие 8",
+        "виртуализация"
+      ],
+      "description": "Файловый сервер и сервер 1С для офиса до 30 человек."
+    },
+    {
+      "sku": "SRV-T200",
+      "name": "Сервер-башня СерверФокс T200 (Xeon E, 32/4×2 ТБ)",
+      "category": "server",
+      "price": 199900,
+      "stock": 4,
+      "lead_time_days": 14,
+      "warranty_months": 36,
+      "specs": {
+        "form_factor": "башня",
+        "cpu": "Intel Xeon E-2314",
+        "ram_gb": 32,
+        "storage": "4×2 ТБ SATA",
+        "lan": "2×1 Гбит/с"
+      },
+      "compat": [
+        "Windows Server 2022",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Тихий сервер под стол: файлы, 1С, бэкапы."
+    },
+    {
+      "sku": "SRV-2U-P",
+      "name": "Сервер СерверФокс 2U Pro (2×Xeon Silver, 128 ГБ, 8 отсеков)",
+      "category": "server",
+      "price": 549900,
+      "stock": 1,
+      "lead_time_days": 21,
+      "warranty_months": 36,
+      "specs": {
+        "form_factor": "2U",
+        "cpu": "2× Intel Xeon Silver 4314",
+        "ram_gb": 128,
+        "bays": 8,
+        "psu": "2×800 Вт (резерв)",
+        "lan": "4×10 Гбит/с"
+      },
+      "compat": [
+        "Windows Server 2022",
+        "Linux",
+        "VMware",
+        "1С:Предприятие 8"
+      ],
+      "description": "Виртуализация, 1С на 50+ пользователей, резервные блоки питания."
+    },
+    {
+      "sku": "SRV-1U-S",
+      "name": "Сервер хранения СерверФокс 1U Storage (12×3.5\")",
+      "category": "server",
+      "price": 379900,
+      "stock": 2,
+      "lead_time_days": 21,
+      "warranty_months": 36,
+      "specs": {
+        "form_factor": "1U",
+        "bays": 12,
+        "ram_gb": 64,
+        "controllers": "аппаратный RAID",
+        "lan": "2×10 Гбит/с"
+      },
+      "compat": [
+        "Windows Server 2022",
+        "Linux",
+        "iSCSI",
+        "NFS"
+      ],
+      "description": "Хранилище для отраслевых систем: много дисков и аппаратный RAID."
+    },
+    {
+      "sku": "SRV-VDI",
+      "name": "Сервер VDI на 50 рабочих мест",
+      "category": "server",
+      "price": 899900,
+      "stock": 1,
+      "lead_time_days": 30,
+      "warranty_months": 36,
+      "specs": {
+        "cpu": "2× AMD EPYC 9354",
+        "ram_gb": 512,
+        "storage": "4×1,92 ТБ NVMe",
+        "seats": 50
+      },
+      "compat": [
+        "Proxmox",
+        "VMware Horizon",
+        "Linux"
+      ],
+      "description": "Замена парка офисных ПК тонкими клиентами: настраиваем под ваш профиль."
+    },
+    {
+      "sku": "NAS-4B",
+      "name": "СХД СтореджФокс NAS-4B (4 отсека, 4×4 ТБ)",
+      "category": "storage",
+      "price": 89900,
+      "stock": 6,
+      "lead_time_days": 5,
+      "warranty_months": 24,
+      "specs": {
+        "bays": 4,
+        "disks": "4×4 ТБ (RAID 5)",
+        "lan": "2×1 Гбит/с",
+        "protocols": "SMB, NFS, FTP"
+      },
+      "compat": [
+        "Windows",
+        "macOS",
+        "Linux",
+        "резервное копирование"
+      ],
+      "description": "Файловый сервер для отдела: шары, права доступа, бэкап по расписанию."
+    },
+    {
+      "sku": "NAS-8P",
+      "name": "СХД СтореджФокс NAS-8P (8 отсеков, 10 Гбит/с)",
+      "category": "storage",
+      "price": 219900,
+      "stock": 3,
+      "lead_time_days": 10,
+      "warranty_months": 36,
+      "specs": {
+        "bays": 8,
+        "lan": "2×10 Гбит/с",
+        "protocols": "SMB, NFS, iSCSI",
+        "cache": "NVMe-кэш"
+      },
+      "compat": [
+        "Windows Server",
+        "Linux",
+        "виртуализация"
+      ],
+      "description": "Хранилище под 1С, бэкапы и виртуальные машины."
+    },
+    {
+      "sku": "DAS-12",
+      "name": "Дисковая полка СтореджФокс DAS-12 (12 отсеков SAS)",
+      "category": "storage",
+      "price": 329900,
+      "stock": 2,
+      "lead_time_days": 21,
+      "warranty_months": 36,
+      "specs": {
+        "bays": 12,
+        "interface": "SAS 12 Гбит/с",
+        "совместимость": "серверы СерверФокс 1U/2U"
+      },
+      "compat": [
+        "Windows Server",
+        "Linux"
+      ],
+      "description": "Расширение хранилища сервера без замены самого сервера."
+    },
+    {
+      "sku": "TAPE-LTO",
+      "name": "Стример LTO-9 + картридж для архива",
+      "category": "storage",
+      "price": 459900,
+      "stock": 1,
+      "lead_time_days": 30,
+      "warranty_months": 24,
+      "specs": {
+        "формат": "LTO-9",
+        "ёмкость": "18 ТБ",
+        "интерфейс": "SAS"
+      },
+      "compat": [
+        "Windows Server",
+        "Linux",
+        "Veeam",
+        "резервное копирование"
+      ],
+      "description": "Долговременный архив: защита от шифровальщиков, хранение вне офиса."
+    },
+    {
+      "sku": "USB-1T",
+      "name": "Внешний SSD 1 ТБ USB-C",
+      "category": "storage",
+      "price": 9900,
+      "stock": 40,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "объём": "1 ТБ",
+        "интерфейс": "USB 3.2 Gen 2",
+        "скорость": "1050 МБ/с"
+      },
+      "compat": [
+        "Windows",
+        "macOS",
+        "Linux"
+      ],
+      "description": "Для переноса баз и быстрых бэкапов перед обновлением."
+    },
+    {
+      "sku": "SW-8G",
+      "name": "Коммутатор НетФокс SW-8G (8×1 Гбит/с)",
+      "category": "network",
+      "price": 6900,
+      "stock": 35,
+      "lead_time_days": 1,
+      "warranty_months": 36,
+      "specs": {
+        "ports": 8,
+        "speed": "1 Гбит/с",
+        "тип": "неуправляемый",
+        "case": "металл"
+      },
+      "compat": [
+        "любая сеть Ethernet"
+      ],
+      "description": "Расширить сеть в кабинете — воткнуть и забыть."
+    },
+    {
+      "sku": "SW-24G",
+      "name": "Коммутатор НетФокс SW-24G (24×1 Гбит/с)",
+      "category": "network",
+      "price": 24900,
+      "stock": 12,
+      "lead_time_days": 2,
+      "warranty_months": 36,
+      "specs": {
+        "ports": 24,
+        "speed": "1 Гбит/с",
+        "тип": "неуправляемый",
+        "rack": "19\""
+      },
+      "compat": [
+        "любая сеть Ethernet"
+      ],
+      "description": "Офисная сеть на 24 порта в стойку."
+    },
+    {
+      "sku": "SW-48GP",
+      "name": "Коммутатор НетФокс SW-48GP (48×PoE+, 4×SFP+)",
+      "category": "network",
+      "price": 189900,
+      "stock": 4,
+      "lead_time_days": 10,
+      "warranty_months": 36,
+      "specs": {
+        "ports": 48,
+        "poe": "PoE+ 370 Вт",
+        "uplink": "4×SFP+ 10 Гбит/с",
+        "управление": "web/L2, VLAN, SNMP"
+      },
+      "compat": [
+        "IP-телефония",
+        "камеры видеонаблюдения",
+        "точки доступа"
+      ],
+      "description": "Питает камеры и телефоны по витой паре — без розеток у потолка."
+    },
+    {
+      "sku": "RT-500",
+      "name": "Маршрутизатор НетФокс RT-500 (VPN, 500 Мбит/с)",
+      "category": "network",
+      "price": 18900,
+      "stock": 14,
+      "lead_time_days": 2,
+      "warranty_months": 36,
+      "specs": {
+        "throughput": "500 Мбит/с",
+        "vpn": "IPsec, OpenVPN, WireGuard",
+        "ports": "2×WAN, 4×LAN"
+      },
+      "compat": [
+        "IP-телефония",
+        "удалённые сотрудники"
+      ],
+      "description": "Два интернет-провайдера и доступ сотрудников из дома."
+    },
+    {
+      "sku": "FW-1000",
+      "name": "Межсетевой экран НетФокс FW-1000 (1 Гбит/с, 20 VPN)",
+      "category": "network",
+      "price": 149900,
+      "stock": 3,
+      "lead_time_days": 14,
+      "warranty_months": 36,
+      "specs": {
+        "throughput": "1 Гбит/с",
+        "vpn_tunnels": 20,
+        "функции": "UTM: антивирус, IPS, фильтр сайтов"
+      },
+      "compat": [
+        "Windows",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Защита периметра и журнал событий для аудита."
+    },
+    {
+      "sku": "AP-6E",
+      "name": "Точка доступа Wi-Fi 6E НетФокс AP-6E",
+      "category": "network",
+      "price": 22900,
+      "stock": 20,
+      "lead_time_days": 3,
+      "warranty_months": 36,
+      "specs": {
+        "standard": "Wi-Fi 6E (802.11ax)",
+        "clients": 120,
+        "poe": "PoE+",
+        "mount": "потолок/стена"
+      },
+      "compat": [
+        "Windows",
+        "macOS",
+        "iOS",
+        "Android"
+      ],
+      "description": "Стабильный Wi-Fi в офисе и на складе."
+    },
+    {
+      "sku": "AP-KIT",
+      "name": "Комплект Wi-Fi: точка доступа + PoE-инжектор",
+      "category": "network",
+      "price": 27900,
+      "stock": 10,
+      "lead_time_days": 3,
+      "warranty_months": 36,
+      "specs": {
+        "состав": "AP-6E, PoE-инжектор, кабель 10 м"
+      },
+      "compat": [
+        "Windows",
+        "macOS",
+        "iOS",
+        "Android"
+      ],
+      "description": "Если Wi-Fi нужен там, где нет PoE-коммутатора."
+    },
+    {
+      "sku": "SFP-10G",
+      "name": "Модуль SFP+ 10 Гбит/с (оптика, 300 м)",
+      "category": "network",
+      "price": 12900,
+      "stock": 18,
+      "lead_time_days": 5,
+      "warranty_months": 24,
+      "specs": {
+        "speed": "10 Гбит/с",
+        "distance_m": 300,
+        "тип": "многомодовый, LC"
+      },
+      "compat": [
+        "НетФокс SW-48GP",
+        "SFP+ порты"
+      ],
+      "description": "Связать серверную с этажом на 10 Гбит/с."
+    },
+    {
+      "sku": "PATCH-305",
+      "name": "Патч-корд UTP cat.6, 3 м (упаковка 10 шт.)",
+      "category": "network",
+      "price": 3900,
+      "stock": 50,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "длина": "3 м",
+        "категория": "cat.6",
+        "экранирование": "UTP, без защёлки"
+      },
+      "compat": [
+        "любая сеть Ethernet"
+      ],
+      "description": "Расходник для монтажа: аккуратно и по цвету."
+    },
+    {
+      "sku": "KB-500",
+      "name": "Клавиатура КейФокс KB-500 (USB, проводная)",
+      "category": "peripheral",
+      "price": 2400,
+      "stock": 60,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "интерфейс": "USB",
+        "раскладка": "RU/EN",
+        "влагозащита": true
+      },
+      "compat": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "description": "Надёжная офисная клавиатура с тихими клавишами."
+    },
+    {
+      "sku": "KB-W750",
+      "name": "Комплект клавиатура + мышь КейФокс W750 (беспроводной)",
+      "category": "peripheral",
+      "price": 4900,
+      "stock": 45,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "интерфейс": "USB-радиоканал 2,4 ГГц",
+        "питание": "2×AAA, батарейки в комплекте"
+      },
+      "compat": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "description": "Один адаптер на два устройства — меньше проводов на столе."
+    },
+    {
+      "sku": "MS-320",
+      "name": "Мышь КейФокс MS-320 (беспроводная, 1600 dpi)",
+      "category": "peripheral",
+      "price": 2200,
+      "stock": 70,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "dpi": 1600,
+        "интерфейс": "USB-радиоканал"
+      },
+      "compat": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "description": "Тихая мышь с колесом и боковым хватом."
+    },
+    {
+      "sku": "HS-UC40",
+      "name": "Гарнитура для ВКС с шумоподавлением (USB)",
+      "category": "peripheral",
+      "price": 11900,
+      "stock": 22,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "микрофон": "с шумоподавлением",
+        "подключение": "USB-A/USB-C",
+        "совместимость": "Zoom, Телемост, Яндекс Телемост"
+      },
+      "compat": [
+        "Windows",
+        "macOS"
+      ],
+      "description": "Чтобы вас было слышно на совещаниях из опенспейса."
+    },
+    {
+      "sku": "CAM-4K",
+      "name": "Веб-камера 4K с автофокусом",
+      "category": "peripheral",
+      "price": 12900,
+      "stock": 16,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "resolution": "3840×2160",
+        "fps": 30,
+        "autofocus": true,
+        "шторка": "встроенная"
+      },
+      "compat": [
+        "Windows",
+        "macOS",
+        "Zoom",
+        "Телемост"
+      ],
+      "description": "Для переговорной и презентаций: чёткая картинка и шторка."
+    },
+    {
+      "sku": "DOCK-U9",
+      "name": "Док-станция USB-C (2×HDMI, LAN, 90 Вт)",
+      "category": "peripheral",
+      "price": 16900,
+      "stock": 18,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "ports": "2×HDMI 4K, LAN, 4×USB, кардридер",
+        "power_delivery_w": 90
+      },
+      "compat": [
+        "Windows 11",
+        "macOS"
+      ],
+      "description": "Один кабель к ноутбуку — два монитора, сеть и зарядка."
+    },
+    {
+      "sku": "HUB-7",
+      "name": "USB-C хаб 7 в 1",
+      "category": "peripheral",
+      "price": 4400,
+      "stock": 40,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "ports": "HDMI, 3×USB-A, USB-C, SD/microSD"
+      },
+      "compat": [
+        "Windows",
+        "macOS",
+        "Linux"
+      ],
+      "description": "Выручает в командировке и на переговорке."
+    },
+    {
+      "sku": "SCAN-BC",
+      "name": "Сканер штрихкодов беспроводной",
+      "category": "peripheral",
+      "price": 9800,
+      "stock": 12,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "specs": {
+        "типы": "1D/2D (QR)",
+        "интерфейс": "Bluetooth/USB",
+        "радиус": "30 м"
+      },
+      "compat": [
+        "1С:Предприятие 8",
+        "Windows"
+      ],
+      "description": "Для склада и розницы: пересчёт товара без клавиатуры."
+    },
+    {
+      "sku": "TAB-SIGN",
+      "name": "Планшет для подписи документов + стилус",
+      "category": "peripheral",
+      "price": 24900,
+      "stock": 9,
+      "lead_time_days": 5,
+      "warranty_months": 24,
+      "specs": {
+        "размер": "10,1\"",
+        "интерфейс": "USB",
+        "поле_подписи": "A6"
+      },
+      "compat": [
+        "Windows",
+        "1С:Предприятие 8"
+      ],
+      "description": "Подпись клиента сразу в документе — меньше бумаги и разбирательств."
+    },
+    {
+      "sku": "NB-LOCK",
+      "name": "Замок-тросик для ноутбука",
+      "category": "peripheral",
+      "price": 1900,
+      "stock": 40,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "длина_м": 1.8,
+        "тип": "ключевой, Kensington"
+      },
+      "compat": [
+        "универсальный"
+      ],
+      "description": "Мелочь, которая спасает ноутбуки в коворкингах."
+    },
+    {
+      "sku": "UPS-650",
+      "name": "ИБП ПауэрФокс UPS-650 (650 ВА)",
+      "category": "power",
+      "price": 7900,
+      "stock": 30,
+      "lead_time_days": 1,
+      "warranty_months": 24,
+      "specs": {
+        "мощность_ва": 650,
+        "время_мин": 12,
+        "выходы": "4×Schuko, 2×USB"
+      },
+      "compat": [
+        "рабочее место",
+        "роутер",
+        "касса"
+      ],
+      "description": "Чтобы компьютер пережил короткое отключение без потерь."
+    },
+    {
+      "sku": "UPS-3000R",
+      "name": "ИБП ПауэрФокс UPS-3000R (3 кВА, стоечный)",
+      "category": "power",
+      "price": 89900,
+      "stock": 4,
+      "lead_time_days": 7,
+      "warranty_months": 24,
+      "specs": {
+        "мощность_ва": 3000,
+        "form_factor": "в стойку 19\", 2U",
+        "время_мин": 15,
+        "интерфейс": "USB + SNMP"
+      },
+      "compat": [
+        "серверы",
+        "СХД",
+        "сетевое оборудование"
+      ],
+      "description": "Питает серверную: корректное завершение работы по SNMP."
+    },
+    {
+      "sku": "UPS-6000R",
+      "name": "ИБП ПауэрФокс UPS-6000R (6 кВА, on-line)",
+      "category": "power",
+      "price": 219900,
+      "stock": 2,
+      "lead_time_days": 14,
+      "warranty_months": 24,
+      "specs": {
+        "мощность_ва": 6000,
+        "тип": "on-line, двойное преобразование",
+        "form_factor": "в стойку 3U"
+      },
+      "compat": [
+        "серверы",
+        "СХД",
+        "системы безопасности"
+      ],
+      "description": "Чистое питание без переключений для отраслевых систем."
+    },
+    {
+      "sku": "PDU-8",
+      "name": "Блок розеток в стойку 19\", 8×Schuko",
+      "category": "power",
+      "price": 14900,
+      "stock": 10,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "specs": {
+        "розеток": 8,
+        "монтаж": "19\", 1U",
+        "защита": "автомат + фильтр"
+      },
+      "compat": [
+        "серверные стойки"
+      ],
+      "description": "Порядок в стойке: всё питание на одном блоке с защитой."
+    },
+    {
+      "sku": "BATT-EXT",
+      "name": "Батарейный модуль для ИБП 3 кВА",
+      "category": "power",
+      "price": 64900,
+      "stock": 3,
+      "lead_time_days": 14,
+      "warranty_months": 12,
+      "specs": {
+        "совместимость": "UPS-3000R",
+        "время_мин": "до 60"
+      },
+      "compat": [
+        "ПауэрФокс UPS-3000R"
+      ],
+      "description": "Продлевает автономность серверной при долгих отключениях."
+    },
+    {
+      "sku": "PANEL-65",
+      "name": "Интерактивная панель 65\" 4K с OPS",
+      "category": "interactive",
+      "price": 249900,
+      "stock": 3,
+      "lead_time_days": 10,
+      "warranty_months": 36,
+      "specs": {
+        "diagonal": 65,
+        "resolution": "3840×2160",
+        "touch": "20 касаний",
+        "ops": "встроенный компьютер"
+      },
+      "compat": [
+        "Windows 11",
+        "Zoom",
+        "Телемост",
+        "интерактивные доски"
+      ],
+      "description": "Для переговорной и обучения: писать, показывать, созваниваться."
+    },
+    {
+      "sku": "PANEL-75",
+      "name": "Интерактивная панель 75\" 4K",
+      "category": "interactive",
+      "price": 329900,
+      "stock": 2,
+      "lead_time_days": 14,
+      "warranty_months": 36,
+      "specs": {
+        "diagonal": 75,
+        "resolution": "3840×2160",
+        "touch": "40 касаний",
+        "mount": "настенный кронштейн"
+      },
+      "compat": [
+        "Windows 11",
+        "Zoom",
+        "Телемост"
+      ],
+      "description": "Большая панель для конференц-зала и презентаций."
+    },
+    {
+      "sku": "VCS-KIT",
+      "name": "Комплект ВКС для переговорной (панель 55\" + камера + микрофон)",
+      "category": "interactive",
+      "price": 189900,
+      "stock": 3,
+      "lead_time_days": 14,
+      "warranty_months": 36,
+      "specs": {
+        "состав": "дисплей 55\", камера 4K с автотрекингом, потолочный микрофон, контроллер"
+      },
+      "compat": [
+        "Zoom",
+        "Телемост",
+        "Microsoft Teams"
+      ],
+      "description": "Готовая переговорная: занимает час на монтаж."
+    },
+    {
+      "sku": "VC-BAR",
+      "name": "Видеопанель ВКС с ИИ-кадрированием",
+      "category": "interactive",
+      "price": 139900,
+      "stock": 4,
+      "lead_time_days": 10,
+      "warranty_months": 24,
+      "specs": {
+        "resolution": "4K",
+        "microphones": "6 микрофонов, зона 6 м",
+        "ai": "автокадр и шумоподавление"
+      },
+      "compat": [
+        "Zoom",
+        "Microsoft Teams",
+        "Телемост"
+      ],
+      "description": "Вешает камера, микрофон и динамик в один блок под экраном."
+    },
+    {
+      "sku": "LBL-400",
+      "name": "Принтер этикеток промышленный (300 dpi, до 150 мм/с)",
+      "category": "printer",
+      "price": 39900,
+      "stock": 5,
+      "lead_time_days": 5,
+      "warranty_months": 24,
+      "specs": {
+        "resolution": "300 dpi",
+        "speed_mm_s": 150,
+        "width_mm": 110,
+        "interfaces": "USB, Ethernet, RS-232"
+      },
+      "compat": [
+        "Windows",
+        "1С:Предприятие 8"
+      ],
+      "description": "Маркировка товара и паллет: печатает быстрее офисного."
+    },
+    {
+      "sku": "SC-A3",
+      "name": "Сканер планшетный A3 (600 dpi)",
+      "category": "scanner",
+      "price": 54900,
+      "stock": 4,
+      "lead_time_days": 5,
+      "warranty_months": 24,
+      "specs": {
+        "format": "A3",
+        "resolution": "600 dpi",
+        "speed": "8 с/стр.",
+        "интерфейс": "USB"
+      },
+      "compat": [
+        "Windows 11",
+        "macOS",
+        "1С:Предприятие 8"
+      ],
+      "description": "Чертежи, схемы и паспорта оборудования — в электронный вид."
+    },
+    {
+      "sku": "SC-NET",
+      "name": "Сканер сетевой с отправкой на e-mail (A4)",
+      "category": "scanner",
+      "price": 39900,
+      "stock": 6,
+      "lead_time_days": 3,
+      "warranty_months": 24,
+      "specs": {
+        "format": "A4",
+        "скорость": "40 стр/мин",
+        "функции": "скан в папку, e-mail, FTP"
+      },
+      "compat": [
+        "Windows",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Документы уходят сразу в папку и на почту — без компьютера рядом."
+    },
+    {
+      "sku": "CRG-B500",
+      "name": "Картридж для НоутФокс/ЛазерФокс B500",
+      "category": "consumable",
+      "price": 4900,
+      "stock": 45,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "ресурс": "6000 стр.",
+        "для_моделей": "ЛазерФокс LP-220, MF-401A"
+      },
+      "compat": [
+        "ЛазерФокс LP-220",
+        "ЛазерФокс MF-401A"
+      ],
+      "description": "Ходовой картридж офисных принтеров — держим на складе."
+    },
+    {
+      "sku": "DRUM-800",
+      "name": "Фотобарабан для МФУ серии 800",
+      "category": "consumable",
+      "price": 11900,
+      "stock": 12,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "ресурс": "80 000 стр.",
+        "для_моделей": "СканФокс SC-800, ЛазерФокс MF-770"
+      },
+      "compat": [
+        "ЛазерФокс MF-770"
+      ],
+      "description": "Меняется на месте за 10 минут — по инструкции из комплекта."
+    },
+    {
+      "sku": "LAM-A3",
+      "name": "Ламинатор A3 (до 250 мкм)",
+      "category": "office",
+      "price": 12900,
+      "stock": 15,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "format": "A3",
+        "плотность_мкм": 250,
+        "скорость": "600 мм/мин"
+      },
+      "compat": [
+        "любая офисная работа"
+      ],
+      "description": "Плотные грамоты, меню и пропуска — без похода в копицентр."
+    },
+    {
+      "sku": "BIND-W",
+      "name": "Переплётчик на пружину (до 120 листов)",
+      "category": "office",
+      "price": 34900,
+      "stock": 4,
+      "lead_time_days": 5,
+      "warranty_months": 24,
+      "specs": {
+        "листов": 120,
+        "диаметр_пружины": "до 25 мм",
+        "перфорация": "до 12 листов"
+      },
+      "compat": [
+        "любая офисная работа"
+      ],
+      "description": "Отчёты и коммерческие предложения в переплёте — выглядят солиднее."
+    },
+    {
+      "sku": "CUT-A3",
+      "name": "Резак гильотинный A3 (20 листов)",
+      "category": "office",
+      "price": 19900,
+      "stock": 8,
+      "lead_time_days": 2,
+      "warranty_months": 24,
+      "specs": {
+        "листов": 20,
+        "format": "A3",
+        "защита": "прозрачный кожух"
+      },
+      "compat": [
+        "любая офисная работа"
+      ],
+      "description": "Ровные края документов и фотографий для стендов."
+    },
+    {
+      "sku": "OS-WIN11-PRO",
+      "name": "Лицензия Windows 11 Pro (бессрочная)",
+      "category": "software",
+      "price": 18900,
+      "stock": null,
+      "lead_time_days": 1,
+      "warranty_months": 0,
+      "specs": {
+        "тип": "бессрочная лицензия",
+        "поставка": "электронный ключ",
+        "устройств": 1
+      },
+      "compat": [
+        "ПК и ноутбуки"
+      ],
+      "description": "Легальная ОС для нового рабочего места: обновления и BitLocker."
+    },
+    {
+      "sku": "MSO-365-APPS",
+      "name": "Microsoft 365 Apps for business (12 мес., 1 пользователь)",
+      "category": "software",
+      "price": 9900,
+      "stock": null,
+      "lead_time_days": 1,
+      "warranty_months": 0,
+      "specs": {
+        "срок": "12 месяцев",
+        "состав": "Word, Excel, PowerPoint, Outlook",
+        "поставка": "электронная"
+      },
+      "compat": [
+        "Windows",
+        "macOS",
+        "iOS",
+        "Android"
+      ],
+      "description": "Знакомый офисный пакет по подписке, без разовых платежей."
+    },
+    {
+      "sku": "MSO-365-STD",
+      "name": "Microsoft 365 Business Standard (12 мес., 1 пользователь)",
+      "category": "software",
+      "price": 16900,
+      "stock": null,
+      "lead_time_days": 1,
+      "warranty_months": 0,
+      "specs": {
+        "срок": "12 месяцев",
+        "состав": "офисные приложения + почта на домене, Teams"
+      },
+      "compat": [
+        "Windows",
+        "macOS",
+        "iOS",
+        "Android"
+      ],
+      "description": "Почта компании на своём домене и совместная работа."
+    },
+    {
+      "sku": "SOFT-1C-BU",
+      "name": "1С:Бухгалтерия 8 ПРОФ + лицензия на 1 пользователя",
+      "category": "software",
+      "price": 22900,
+      "stock": null,
+      "lead_time_days": 3,
+      "warranty_months": 0,
+      "specs": {
+        "поставка": "коробка + электронная лицензия",
+        "пользователей": 1
+      },
+      "compat": [
+        "Windows 11",
+        "Windows Server"
+      ],
+      "description": "Отраслевой стандарт бухгалтерии: ставим и настраиваем сами."
+    },
+    {
+      "sku": "SOFT-OFFICE-10",
+      "name": "Пакет офисного ПО на 10 рабочих мест",
+      "category": "software",
+      "price": 89900,
+      "stock": null,
+      "lead_time_days": 5,
+      "warranty_months": 0,
+      "specs": {
+        "мест": 10,
+        "состав": "ОС, офисный пакет, антивирус, архиватор"
+      },
+      "compat": [
+        "Windows 11",
+        "1С:Предприятие 8"
+      ],
+      "description": "Лицензии для новой команды одним заказом — дешевле поштучного."
+    },
+    {
+      "sku": "AV-10",
+      "name": "Антивирус для бизнеса (10 рабочих мест, 12 мес.)",
+      "category": "software",
+      "price": 34900,
+      "stock": null,
+      "lead_time_days": 2,
+      "warranty_months": 0,
+      "specs": {
+        "мест": 10,
+        "срок": "12 месяцев",
+        "управление": "веб-консоль, отчёты"
+      },
+      "compat": [
+        "Windows 11",
+        "Windows Server",
+        "macOS"
+      ],
+      "description": "Централизованная защита с отчётами для аудита."
+    },
+    {
+      "sku": "SOFT-BACKUP",
+      "name": "ПО резервного копирования на 1 сервер",
+      "category": "software",
+      "price": 54900,
+      "stock": null,
+      "lead_time_days": 3,
+      "warranty_months": 0,
+      "specs": {
+        "объекты": "сервер, файлы, 1С, виртуальные машины",
+        "хранение": "локально + облако"
+      },
+      "compat": [
+        "Windows Server",
+        "Linux"
+      ],
+      "description": "Бэкапы по расписанию с проверкой восстановления."
+    },
+    {
+      "sku": "SVC-INST-SRV",
+      "name": "Монтаж серверной стойки и пусконаладка",
+      "category": "service",
+      "price": 89900,
+      "stock": null,
+      "lead_time_days": 10,
+      "warranty_months": 12,
+      "specs": {
+        "работы": "стойка, ИБП, коммутация, базовый запуск",
+        "срок": "2–3 дня"
+      },
+      "compat": [
+        "Windows Server",
+        "Linux"
+      ],
+      "description": "Соберём серверную под ключ: питание, сеть, разметка хранилищ."
+    },
+    {
+      "sku": "SVC-NET-20",
+      "name": "Настройка офисной сети (до 20 портов)",
+      "category": "service",
+      "price": 49900,
+      "stock": null,
+      "lead_time_days": 5,
+      "warranty_months": 12,
+      "specs": {
+        "работы": "маршрутизатор, коммутаторы, VLAN, Wi-Fi, тесты"
+      },
+      "compat": [
+        "любая офисная сеть"
+      ],
+      "description": "Стабильная сеть с изолированными гостевым и рабочим сегментами."
+    },
+    {
+      "sku": "SVC-WS-SETUP",
+      "name": "Установка и настройка 1 рабочего места",
+      "category": "service",
+      "price": 4900,
+      "stock": null,
+      "lead_time_days": 1,
+      "warranty_months": 12,
+      "specs": {
+        "работы": "ОС, офис, 1С, почта, периферия, перенос данных"
+      },
+      "compat": [
+        "Windows 11",
+        "1С:Предприятие 8"
+      ],
+      "description": "Новый сотрудник выходит на работу с готовым компьютером."
+    },
+    {
+      "sku": "SVC-TRAIN",
+      "name": "Обучение сотрудников (группа до 10 человек)",
+      "category": "service",
+      "price": 24900,
+      "stock": null,
+      "lead_time_days": 5,
+      "warranty_months": 0,
+      "specs": {
+        "формат": "онлайн или в офисе, 4 часа",
+        "темы": "1С, Excel, документооборот"
+      },
+      "compat": [
+        "1С:Предприятие 8",
+        "Microsoft 365"
+      ],
+      "description": "Чтобы люди работали в системе, а не звонили в поддержку."
+    },
+    {
+      "sku": "SVC-OUTSOURCE",
+      "name": "Абонентское IT-обслуживание (1 мес., до 25 мест)",
+      "category": "service",
+      "price": 79900,
+      "stock": null,
+      "lead_time_days": 7,
+      "warranty_months": 0,
+      "specs": {
+        "состав": "поддержка пользователей, серверы, сеть, обновления, отчёт"
+      },
+      "compat": [
+        "Windows",
+        "Linux",
+        "1С:Предприятие 8"
+      ],
+      "description": "Ваш IT-отдел на абонентке: реакции по SLA, отчёт каждый месяц."
     }
   ]
 }

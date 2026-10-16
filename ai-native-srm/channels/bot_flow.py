@@ -107,6 +107,8 @@ class BotSession:
     notify_manager_replies: bool = True
     techie: bool = False
     pending_text: str = ""  # текст, который не смогли отправить (предлагаем «повторить»)
+    catalog_group: str = ""  # открытый раздел каталога (для листалки «Ещё ▶️»)
+    catalog_page: int = 0
     log: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------ helpers
@@ -185,6 +187,12 @@ class BotSession:
             return self._begin_field_edit(data.split(":", 2)[2])
         if data.startswith("ap:topic:"):
             return self._begin_appeal(data.split(":", 2)[2])
+        if data.startswith("cat:"):
+            _, group, page = (data.split(":", 2) + ["0"])[:3]
+            return self._catalog_group(group, int(page) if page.isdigit() else 0)
+        if data.startswith("cat_page:"):
+            target = data.split(":", 1)[1]
+            return self._catalog_group(self.catalog_group, int(target) if target.isdigit() else 0)
         if data.startswith("ap:open:"):
             return self._open_appeal(int(data.rsplit(":", 1)[1]))
         if data.startswith("ap:reply:"):
@@ -260,10 +268,28 @@ class BotSession:
         if target == "help":
             return [Out(ui.help_screen(card is not None))]
         if target == "catalog":
+            self.catalog_group, self.catalog_page = "", 0
             return [Out(ui.catalog_screen(self.service.catalog()))]
         if target == "settings":
             return [Out(ui.settings_screen(self.notify_manager_replies, self.techie))]
         return [Out(ui.unknown_screen())]
+
+    # ------------------------------------------------------------------ каталог
+    def _catalog_group(self, group: str, page: int = 0) -> list[Out]:
+        """Позиции раздела каталога: раздел и страница запоминаются для кнопки «Ещё ▶️»."""
+        items = self.service.catalog()
+        self.catalog_group, self.catalog_page = group, page
+        if group in ui.CATALOG_GROUP_KEYS:
+            keys = set(ui.CATALOG_GROUP_KEYS[group])
+            selected = [item for item in items if str(item.get("category")) in keys]
+            title = ui.CATALOG_GROUP_TITLES[group]
+        else:  # раздел «Прочее»: позиции, не попавшие в разделы витрины
+            known = {key for keys in ui.CATALOG_GROUP_KEYS.values() for key in keys}
+            selected = [item for item in items if str(item.get("category") or "other") not in known]
+            title = "🖥 Прочее"
+        if not selected:
+            return [Out(ui.catalog_screen(items), notify="В этом разделе пока нет позиций")]
+        return [Out(ui.catalog_group_screen(title, selected, page))]
 
     # ------------------------------------------------------------------ профиль
     def _edit_menu(self) -> ui.Screen:
