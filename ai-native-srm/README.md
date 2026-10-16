@@ -14,9 +14,10 @@
 ## Быстрый старт (Windows / PowerShell)
 
 ```powershell
-python -m venv .venv
+python -m venv .venv                # виртуальное окружение (необязательно, но удобно)
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+# venv не создавали — команды дальше те же, но вместо .\.venv\Scripts\python.exe просто `python`
 
 Copy-Item .env.example .env          # LLM_PROVIDER=auto: без ключей работает mock, ключи не нужны
 python scripts\seed_demo.py          # 6 клиентов, их заказы и Policy Matrix v1
