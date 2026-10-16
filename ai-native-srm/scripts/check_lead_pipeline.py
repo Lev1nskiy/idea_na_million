@@ -175,6 +175,22 @@ def main() -> int:
     else:
         site = args.site.rstrip("/")
         print(f"\n4. Сайт показывает карточку и уведомление ({site})")
+
+        # Сначала главное: сайт вообще смотрит в CRM или работает на своих демо-данных?
+        # Именно на этом чаще всего «пропадает карточка из бота»: бот пишет в базу бэкенда,
+        # а сайт без CRM_BACKEND_URL отдаёт встроенный набор и о базе ничего не знает.
+        status, site_health = call(f"{site}/api/health")
+        engine = str(site_health.get("engine") or "")
+        if status != 200:
+            step.fail(f"GET {site}/api/health → {status or 'нет ответа'}",
+                      "запустите сайт: npm run build && npm start (и задайте CRM_BACKEND_URL на адрес API)")
+            return 1
+        if engine and engine != "backend":
+            step.fail(f"сайт работает на демо-данных (engine={engine}), а не на CRM-бэкенде",
+                      "запустите сайт с адресом бэкенда: CRM_BACKEND_URL=" + api + " npm start — "
+                      "иначе сайт показывает свой встроенный набор и карточек из бота в нём не будет")
+            return 1
+        step.ok("сайт подключён к CRM-бэкенду", f"engine={engine or 'backend'}")
         status, auth = call(f"{site}/api/auth/login", method="POST",
                             body={"login": args.login, "password": args.password})
         if status != 200 or not auth.get("token"):
