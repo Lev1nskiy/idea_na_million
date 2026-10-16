@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import html
 import json
 import logging
 import os
@@ -368,12 +369,13 @@ def inline_keyboard(rows: tuple[tuple[ui.Button, ...], ...]) -> Any:
 
 def delivery_text(item: dict[str, Any]) -> str:
     """Оформление сообщения, пришедшего из CRM (ответ менеджера или догоняющий ответ ИИ)."""
+    body = html.escape(str(item.get("text", "")))
     role = item.get("role", "")
     if role == "manager":
-        return f"🧑‍💼 <b>Менеджер:</b>\n{item.get('text', '')}"
+        return f"🧑‍💼 <b>Менеджер:</b>\n{body}"
     if role == "ai":
-        return f"🤖 {item.get('text', '')}"
-    return str(item.get("text", ""))
+        return f"🤖 {body}"
+    return body
 
 
 # --------------------------------------------------------------------------- aiogram
@@ -414,9 +416,13 @@ def build_dispatcher(bot: Any, config: LeadBotConfig) -> Any:
         inline = inline_keyboard(out.screen.rows)
         if out.edit and inline is not None:
             with contextlib.suppress(Exception):  # сообщение могло устареть — тогда отправим новое
-                await message.edit_text(out.screen.text, reply_markup=inline)
+                await message.edit_text(out.screen.text, reply_markup=inline, parse_mode="HTML")
                 return
-        await message.answer(out.screen.text, reply_markup=inline or (widget_keyboard() if out.screen.menu else None))
+        await message.answer(
+            out.screen.text,
+            reply_markup=inline or (widget_keyboard() if out.screen.menu else None),
+            parse_mode="HTML",
+        )
         if out.screen.menu and chat_key not in widget_ready:
             widget_ready.add(chat_key)
             await message.answer(WIDGET_HINT, reply_markup=widget_keyboard())
@@ -461,7 +467,10 @@ async def deliver_loop(bot: Any, dispatcher: Any, interval: float = POLL_INTERVA
                     if item.get("role") == "manager" and not session.notify_manager_replies:
                         continue  # клиент отключил уведомления об ответах менеджера в настройках
                     await bot.send_message(
-                        chat_id=chat_key, text=delivery_text(item), reply_markup=widget_keyboard()
+                        chat_id=chat_key,
+                        text=delivery_text(item),
+                        reply_markup=widget_keyboard(),
+                        parse_mode="HTML",
                     )
             except Exception as exc:  # одна упавшая доставка не должна останавливать цикл
                 logger.error("delivery loop: %s", type(exc).__name__)
@@ -504,7 +513,11 @@ async def run() -> int:
         )
         return 3
 
-    bot = Bot(token=config.token)
+    from aiogram.client.default import DefaultBotProperties
+    from aiogram.enums import ParseMode
+
+    # Экраны в bot_ui.py размечены HTML (<b>, <i>) — без parse_mode Telegram показывает теги как текст
+    bot = Bot(token=config.token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     conflict = await probe_polling_free(bot)
     if conflict:
         logger.error("Бот занят другим экземпляром: %s", conflict)
