@@ -96,7 +96,8 @@ python -m pytest -q        # 262 теста, сеть не нужна (LLM_PROVI
 ## Документация
 
 * [`ai-native-srm/docs/architecture.md`](ai-native-srm/docs/architecture.md) — слои, путь сообщения, **таблица «Статья Устава → механизм в коде»**, метрики, деплой.
-* [`ai-native-srm/docs/llm_choice.md`](ai-native-srm/docs/llm_choice.md) — почему GigaChat, сравнение провайдеров, риски, план бенчмарка.
+* [`ai-native-srm/docs/llm_choice.md`](ai-native-srm/docs/llm_choice.md) — выбор LLM-провайдера: любая
+  API-модель, GigaChat, YandexGPT или свои веса, сравнение, риски, план бенчмарка.
 * [`ai-native-srm/docs/pitch.md`](ai-native-srm/docs/pitch.md) — речь на 10 минут и ответы на вопросы жюри.
 * [`ai-native-srm/docs/api.md`](ai-native-srm/docs/api.md) — все эндпоинты и порядок показа демо.
 * [`ai-native-srm/docs/data_transfer.md`](ai-native-srm/docs/data_transfer.md) — перенос состояния между контурами.
@@ -107,7 +108,7 @@ python -m pytest -q        # 262 теста, сеть не нужна (LLM_PROVI
 | Шаг | Что | Статус |
 |---|---|---|
 | 1 | фундамент: модели, БД, каталог, CLI | готов |
-| 2 | LLM-слой: `mock` / GigaChat / YandexGPT + fallback | готов |
+| 2 | LLM-слой: `mock` / любая API-модель / GigaChat / YandexGPT / локальные веса + fallback | готов |
 | 3 | guardrails, RAG, метрики | готов |
 | 4 | Smooth & Hold, handoff, шаблоны | готов |
 | 5 | FastAPI + Streamlit-стенд + перенос данных | готов |

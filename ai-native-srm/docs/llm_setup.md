@@ -1,10 +1,16 @@
-# Подключение облачных LLM: GigaChat и YandexGPT
+# Подключение LLM: любая API-модель, GigaChat, YandexGPT, локальные веса
 
-Движок работает на четырёх провайдерах и **никогда не остаётся без ответа**:
+Движок работает на пяти провайдерах и **никогда не остаётся без ответа**:
 
 ```
-GigaChat → YandexGPT → Local (своя модель на машине) → Mock
+Any API (OpenAI-совместимый чат) → GigaChat → YandexGPT → Local (своя модель) → Mock
 ```
+
+Первый провайдер — универсальный: подойдёт любая модель с API в формате OpenAI
+(OpenRouter, DeepSeek, Groq, Qwen, Mistral, OpenAI, Together, внутренний шлюз), включается тремя
+переменными и не требует правки кода. GigaChat и YandexGPT остаются в цепочке для случаев,
+когда по 152-ФЗ модель обязана быть в РФ. Чтобы оставить ровно одну модель, укажите
+`LLM_PROVIDER=api,mock` — mock всё равно замыкает цепочку.
 
 Облачные модели формулируют текст, но не принимают решений: категория, маршрут и числа
 считаются кодом (`core/tools.py`, Policy Matrix), а модель лишь переписывает факты в ответ.
@@ -17,10 +23,49 @@ GigaChat → YandexGPT → Local (своя модель на машине) → M
 Минимум для облака — три строки: `LLM_PROVIDER` и ключи нужного провайдера.
 
 ```dotenv
-# gigachat | yandex | auto (облако с ключами, затем mock) | gigachat,yandex — явный порядок
+# auto — провайдеры с ключами по порядку (api → gigachat → yandex → local), затем mock.
+# Явный список задаёт порядок: api,mock | gigachat,api | yandex,gigachat — как удобно.
 LLM_PROVIDER=auto
 LLM_TIMEOUT_S=2.5          # бюджет времени на один вызов модели
 ```
+
+### Любая API-модель (проще всего)
+
+Провайдер `api` говорит на OpenAI-совместимом протоколе (`POST /chat/completions`), поэтому
+вендор не важен — важны три значения. Сменили модель — поменяли строку в `.env`, код не трогали.
+
+```dotenv
+LLM_API_BASE_URL=https://api.openai.com/v1
+LLM_API_KEY=<ключ провайдера>          # у шлюзов без авторизации можно оставить пустым
+LLM_API_MODEL=gpt-4o-mini              # имя модели у провайдера
+LLM_API_MAX_TOKENS=800
+LLM_JSON_MODE=false                    # true — просить строгий JSON (нужен не всем шлюзам)
+```
+
+Привычные имена тоже читаются: `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`
+(используются, только если не заданы `LLM_API_*`).
+
+| Провайдер | `LLM_API_BASE_URL` | Пример `LLM_API_MODEL` |
+|---|---|---|
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini`, `gpt-4.1-mini` |
+| OpenRouter (сотни моделей, один ключ) | `https://openrouter.ai/api/v1` | `anthropic/claude-3.5-sonnet`, `qwen/qwen-2.5-72b-instruct` |
+| DeepSeek (дешёвый, сильный в коде) | `https://api.deepseek.com/v1` | `deepseek-chat` |
+| Groq (очень быстрый инференс) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| Qwen / DashScope | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
+| Mistral | `https://api.mistral.ai/v1` | `mistral-small-latest` |
+| Together | `https://api.together.xyz/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` |
+| Свой шлюз / прокси | `http://llm-gateway.internal/v1` | как называется модель внутри |
+
+Проверка: `python scripts/llm_check.py --provider api` — тот же скрипт, что и для остальных
+провайдеров: два вызова (JSON и текст), задержка и подсказка при ошибке (401/402/403/404/429).
+
+Названия-синонимы в `LLM_PROVIDER` (`openai`, `openrouter`, `deepseek`, `groq`, `qwen`, `mistral`,
+`together`, `vllm`) указывают на тот же провайдер `api` — удобно писать
+`LLM_PROVIDER=openrouter,local`, когда хочется зафиксировать порядок.
+
+Что уходит в облако: как и у любого внешнего провайдера — только маскированный текст
+(`core/masking.py`), персональные данные остаются в контуре CRM. Если модель обязана быть
+в РФ — ставьте `LLM_PROVIDER=gigachat,api` (GigaChat первым) или `LLM_PROVIDER=local`.
 
 ### GigaChat (Сбер)
 
@@ -114,7 +159,7 @@ ollama pull forzer/GigaChat3-10B-A1.8B          # или 20B: hf.co/ai-sage/Giga
 ollama list                                      # проверить, что модель скачалась
 
 # 2. Прописываем в .env (Ollama отдаёт OpenAI-совместимый API на порту 11434)
-#    LLM_PROVIDER=auto            # облако (если есть ключи) → local → mock
+#    LLM_PROVIDER=local           # свои веса: без внешних вызовов; auto — API/GigaChat → local → mock
 #    LOCAL_MODEL=forzer/GigaChat3-10B-A1.8B
 #    LOCAL_BASE_URL=http://127.0.0.1:11434/v1
 #    LLM_TIMEOUT_S=25             # CPU-инференс медленный: даём бюджет
@@ -203,6 +248,11 @@ curl http://localhost:8000/api/health     # {"provider":"gigachat→yandex→moc
 | Симптом | Причина и что делать |
 |---|---|
 | `mock` в `/api/health`, хотя ключи заданы | ключи не подхватились: `.env` читается из корня проекта; проверьте `llm_missing` и `scripts/llm_check.py` |
+| `api: 401 — ключ не принят` | ключ чужого шлюза или скопирован с переносами строк; проверьте `LLM_API_KEY` для того адреса, что стоит в `LLM_API_BASE_URL` |
+| `api: 402 — на счету нет средств` | у OpenRouter/DeepSeek нулевой баланс: пополните или смените модель (402 приходит вместо 401) |
+| `api: 404 — модель недоступна` | имя модели у шлюза своё: у OpenRouter это `vendor/model`, у Groq — свой список; сверьте `LLM_API_MODEL` |
+| `api: 429 — лимит запросов` | тариф шлюза: подождите, смените модель или включите `LLM_JSON_MODE=false` (строгий JSON иногда идёт по другому лимиту) |
+| `response_format` отвергнут (400) | шлюз не умеет строгий JSON: `LLM_JSON_MODE=false` — JSON всё равно разбирается из текста |
 | `401 — проверьте GIGACHAT_CREDENTIALS` | ключ авторизации неверен или отозван; проверьте также `GIGACHAT_SCOPE` (PERS/B2B/CORP) |
 | `403 — ключу недоступна модель` | у ключа нет доступа к `GIGACHAT_MODEL`; возьмите модель из `client.get_models()` |
 | `CERTIFICATE_VERIFY_FAILED` | не установлен корневой сертификат НУЦ (см. п. 3) |
@@ -227,11 +277,15 @@ curl http://localhost:8000/api/health     # {"provider":"gigachat→yandex→moc
   `client.chat.create(...)` (0.2.x), ответ читается в обоих форматах.
 * `core/llm/yandex.py` — REST через stdlib: `POST /foundationModels/v1/completion`, авторизация
   `Api-Key`/`Bearer`, `modelUri` из каталога и модели.
-* `core/llm/local.py` — OpenAI-совместимый сервер на своей машине (Ollama, LM Studio, llama.cpp,
-  vLLM): бесплатный контур с открытыми весами, данные не покидают контур.
+* `core/llm/openai_compat.py` — общий код для любого OpenAI-совместимого чата: payload,
+  разбор `choices[0].message.content`, превращение 401/402/403/404/429 в подсказки, JSON-режим.
+* `core/llm/api.py` — «любая API-модель»: облачный эндпоинт из `LLM_API_*`, стоят первым в `auto`.
+* `core/llm/local.py` — тот же протокол, но на своей машине (Ollama, LM Studio, llama.cpp, vLLM):
+  бесплатный контур с открытыми весами, данные не покидают контур.
 * `core/llm/__init__.py` — сборка цепочки по `LLM_PROVIDER`, общий бюджет времени, сводка для
   health (`describe_llm`, `provider_status`).
 * `scripts/llm_check.py` — диагностика: ключи, задержка, понятная ошибка.
 
-Тесты — `tests/test_llm_providers.py`: 35 проверок без сети и без ключей (подменяются SDK и
-`urllib`), включая проверку формата запроса и разбор ответов обоих контрактов GigaChat.
+Тесты — `tests/test_llm_providers.py`: проверки без сети и без ключей (подменяются SDK и `urllib`) —
+формат запроса, разбор ответов обоих контрактов GigaChat, подсказки на 401/402/403/404/429,
+порядок цепочки с любым API-провайдером и переход на mock при недоступной сети.

@@ -1,8 +1,8 @@
-"""LLM-провайдеры: GigaChat и YandexGPT без ключей и без сети.
+"""LLM-провайдеры: любая API-модель, GigaChat, YandexGPT и локальные веса — без ключей и без сети.
 
 Тесты проверяют то, что обычно ломается при подключении: какой payload уходит в API,
-как читается ответ (оба контракта SDK), как ошибка провайдера превращается в подсказку
-и что цепочка fallback доходит до mock. Сеть подменяется, ключи фальшивые.
+как читается ответ (оба контракта SDK и OpenAI-совместимый чат), как ошибка провайдера
+превращается в подсказку и что цепочка fallback доходит до mock. Сеть подменяется, ключи фальшивые.
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ from core.llm import (
     describe_llm,
     provider_status,
 )
+from core.llm.api import AnyApiLLM
 from core.llm.base import LLMTimeout, default_timeout
 from core.llm.gigachat import GigaChatLLM
 from core.llm.local import LocalLLM
@@ -254,6 +255,102 @@ def test_yandex_timeout_and_broken_response(monkeypatch: pytest.MonkeyPatch) -> 
         YandexGPTLLM("k", "f").complete_text("s", "u", timeout=3.0)
 
 
+# ---------------------------------------------------------------- любая API-модель
+
+
+def test_api_uses_any_openai_compatible_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ключ + базовый URL + модель — этого достаточно, чтобы отвечала любая API-модель."""
+    fake = _FakeHTTP(body={"choices": [{"message": {"content": "Ответ шлюза"}}], "model": "deepseek-chat"})
+    _patch_urlopen(monkeypatch, fake)
+    llm = AnyApiLLM(
+        model="deepseek-chat",
+        base_url="https://api.deepseek.com/v1",
+        api_key="sk-any",
+        max_tokens=400,
+    )
+
+    assert llm.complete_text("Ты менеджер", "Скидка?", timeout=5.0) == "Ответ шлюза"
+    assert fake.request is not None
+    assert fake.request.full_url == "https://api.deepseek.com/v1/chat/completions"
+    assert {k.lower(): v for k, v in fake.request.headers.items()}["authorization"] == "Bearer sk-any"
+    payload = _sent_payload(fake)
+    assert payload["model"] == "deepseek-chat" and payload["max_tokens"] == 400
+    # JSON-режим выключен по умолчанию: шлюзы, которые не знают response_format, не ломаются
+    assert "response_format" not in payload
+
+
+def test_api_json_mode_asks_provider_for_strict_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeHTTP(body={"choices": [{"message": {"content": '{"intent": "faq"}'}}]})
+    _patch_urlopen(monkeypatch, fake)
+    llm = AnyApiLLM(model="gpt-4o-mini", base_url="https://api.openai.com/v1", api_key="k", json_mode=True)
+
+    assert llm.complete_json("s", "u", {"intent": "строка"}, timeout=5.0) == {"intent": "faq"}
+    assert _sent_payload(fake)["response_format"] == {"type": "json_object"}
+
+
+def test_api_json_without_json_mode_is_extracted_from_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Шлюзы без response_format отвечают текстом — JSON всё равно достаём (```-ограждения тоже)."""
+    fake = _FakeHTTP(body={"choices": [{"message": {"content": 'Категория: B\n```json\n{"intent": "faq", "c": "B"}\n```'}}]})
+    _patch_urlopen(monkeypatch, fake)
+    llm = AnyApiLLM(model="qwen-plus", base_url="https://dashscope.aliyuncs.com/compatible-mode/v1", api_key="k")
+
+    assert llm.complete_json("s", "u", None, timeout=5.0) == {"intent": "faq", "c": "B"}
+
+
+@pytest.mark.parametrize(
+    ("code", "hint"),
+    [
+        (401, "LLM_API_KEY"),
+        (402, "средств"),
+        (403, "LLM_API_MODEL"),
+        (429, "лимит"),
+    ],
+)
+def test_api_errors_give_setup_hints(monkeypatch: pytest.MonkeyPatch, code: int, hint: str) -> None:
+    _patch_urlopen(monkeypatch, _FakeHTTP(
+        error=urllib.error.HTTPError("url", code, "err", {}, None)  # type: ignore[arg-type]
+    ))
+    with pytest.raises(LLMError) as exc_info:
+        AnyApiLLM("gpt-4o-mini", "https://api.openai.com/v1", "k").complete_text("s", "u", timeout=2.0)
+    assert hint in str(exc_info.value) and str(code) in str(exc_info.value)
+
+
+def test_api_404_names_model_and_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """У шлюзов модель указывают как vendor/model — ошибка должна подсказывать, где смотреть."""
+    _patch_urlopen(monkeypatch, _FakeHTTP(
+        error=urllib.error.HTTPError("url", 404, "not found", {}, None)  # type: ignore[arg-type]
+    ))
+    with pytest.raises(LLMError) as exc_info:
+        AnyApiLLM("no-such-model", "https://openrouter.ai/api/v1", "k").complete_text("s", "u", timeout=2.0)
+    message = str(exc_info.value)
+    assert "no-such-model" in message and "openrouter.ai" in message and "LLM_API_MODEL" in message
+
+
+def test_api_network_error_and_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_urlopen(monkeypatch, _FakeHTTP(error=urllib.error.URLError(ConnectionRefusedError(111, "refused"))))
+    with pytest.raises(LLMError) as exc_info:
+        AnyApiLLM("m", "https://gw.example/v1", "k").complete_text("s", "u", timeout=2.0)
+    assert "LLM_API_BASE_URL" in str(exc_info.value)
+
+    _patch_urlopen(monkeypatch, _FakeHTTP(error=socket.timeout("slow")))
+    with pytest.raises(LLMTimeout):
+        AnyApiLLM("m", "https://gw.example/v1", "k").complete_text("s", "u", timeout=1.0)
+
+
+def test_api_provider_two_providers_same_protocol_are_isolated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Облако и локальный сервер — один код, но разные адреса: проверяем, что не перепутаны."""
+    fake = _FakeHTTP(body={"choices": [{"message": {"content": "облако"}}]})
+    _patch_urlopen(monkeypatch, fake)
+    AnyApiLLM("m", "https://api.openai.com/v1", "k").complete_text("s", "u", timeout=3.0)
+    cloud_url = fake.request.full_url if fake.request else ""
+
+    local = _FakeHTTP(body={"choices": [{"message": {"content": "локально"}}]})
+    _patch_urlopen(monkeypatch, local)
+    LocalLLM("m").complete_text("s", "u", timeout=3.0)
+    assert cloud_url == "https://api.openai.com/v1/chat/completions"
+    assert local.request is not None and local.request.full_url == "http://127.0.0.1:11434/v1/chat/completions"
+
+
 # ---------------------------------------------------------------- локальная модель
 
 
@@ -330,6 +427,10 @@ def _isolate(monkeypatch: pytest.MonkeyPatch) -> None:
     for var in (
         "GIGACHAT_CREDENTIALS", "YANDEX_API_KEY", "YANDEX_IAM_TOKEN", "YANDEX_FOLDER_ID",
         "LLM_PROVIDER", "LLM_TIMEOUT_S", "LOCAL_MODEL", "LOCAL_BASE_URL", "LOCAL_API_KEY",
+        # Провайдер «любая API-модель»: и LLM_API_*, и привычные OPENAI_* должны быть выключены,
+        # иначе машина с чужим OPENAI_API_KEY в окружении меняет порядок цепочки в тестах.
+        "LLM_API_KEY", "LLM_API_BASE_URL", "LLM_API_MODEL", "LLM_API_MAX_TOKENS",
+        "OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL", "LLM_JSON_MODE",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -378,6 +479,100 @@ def test_local_provider_visible_in_status(monkeypatch: pytest.MonkeyPatch) -> No
     assert "LOCAL_MODEL" in status["local"]["missing"][0]
     monkeypatch.setenv("LOCAL_MODEL", "model")
     assert {i["name"]: i["configured"] for i in provider_status(get_settings())}["local"] is True
+
+
+def test_chain_without_providers_is_rejected() -> None:
+    """Пустая цепочка означала бы «клиент не получит ответ» — такого состояния быть не должно."""
+    with pytest.raises(ValueError):
+        FallbackChain([])
+
+
+def test_any_api_model_replaces_vendor_chain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """«Любая API-модель» встаёт первой: вендорам ключи больше не нужны, mock остаётся замыкающим."""
+    _isolate(monkeypatch)
+    monkeypatch.setenv("LLM_API_KEY", "sk-any")
+    monkeypatch.setenv("LLM_API_MODEL", "deepseek-chat")
+    monkeypatch.setenv("LLM_API_BASE_URL", "https://api.deepseek.com/v1")
+
+    chain = build_chain(get_settings())
+    assert [p.name for p in chain.providers] == ["api", "mock"]
+    assert chain.name == "api→mock"
+    assert isinstance(chain.providers[0], AnyApiLLM)
+
+
+def test_api_goes_before_gigachat_in_auto(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Если заданы и свой API, и GigaChat — отвечает API-модель, GigaChat остаётся запасом."""
+    _isolate(monkeypatch)
+    monkeypatch.setenv("LLM_API_KEY", "sk-any")
+    monkeypatch.setenv("GIGACHAT_CREDENTIALS", "key")
+
+    assert [p.name for p in build_chain(get_settings()).providers] == ["api", "gigachat", "mock"]
+
+
+def test_provider_alias_and_explicit_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`LLM_PROVIDER=openai`/`openrouter` — это тот же провайдер `api`; список задаёт порядок."""
+    _isolate(monkeypatch)
+    monkeypatch.setenv("LLM_API_KEY", "sk-any")
+    monkeypatch.setenv("LLM_PROVIDER", "openrouter,local")
+
+    assert [p.name for p in build_chain(get_settings()).providers] == ["api", "mock"]
+
+    monkeypatch.setenv("LLM_PROVIDER", "gigachat,api")
+    monkeypatch.setenv("GIGACHAT_CREDENTIALS", "key")
+    assert [p.name for p in build_chain(get_settings()).providers] == ["gigachat", "api", "mock"]
+
+
+def test_api_gateway_without_key_needs_explicit_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Внутренний шлюз без авторизации: явный LLM_API_BASE_URL сам включает провайдера."""
+    _isolate(monkeypatch)
+    assert "api" not in [p.name for p in build_chain(get_settings()).providers]
+
+    monkeypatch.setenv("LLM_API_BASE_URL", "http://llm-gateway.internal/v1")
+    monkeypatch.setenv("LLM_API_MODEL", "internal-8b")
+    chain = build_chain(get_settings())
+    assert [p.name for p in chain.providers] == ["api", "mock"]
+    assert chain.providers[0].url == "http://llm-gateway.internal/v1/chat/completions"
+
+
+def test_openai_env_aliases_are_picked_up(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Привычные OPENAI_* тоже работают: подключать чужой ключ не надо."""
+    _isolate(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://gateway.example/v1/")
+
+    chain = build_chain(get_settings())
+    provider = chain.providers[0]
+    assert provider.name == "api" and provider.model == "gpt-4.1-mini"
+    assert provider.url == "https://gateway.example/v1/chat/completions"
+
+
+def test_api_provider_visible_in_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    _isolate(monkeypatch)
+    status = {item["name"]: item for item in provider_status(get_settings())}
+    assert status["api"]["configured"] is False
+    assert "LLM_API_KEY" in status["api"]["missing"][0]
+
+    monkeypatch.setenv("LLM_API_KEY", "sk-any")
+    status = {item["name"]: item for item in provider_status(get_settings())}
+    assert status["api"]["configured"] is True
+
+    summary = describe_llm(get_settings())
+    assert summary["llm"] == "api→mock" and summary["llm_ready"]["api"] is True
+
+
+def test_api_model_answers_again_after_network_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Шлюз отвалился — отвечает mock; сеть вернулась — снова отвечает API-модель."""
+    _isolate(monkeypatch)
+    monkeypatch.setenv("LLM_API_KEY", "sk-any")
+    monkeypatch.setenv("LLM_API_MODEL", "gpt-4o-mini")
+
+    _patch_urlopen(monkeypatch, _FakeHTTP(error=urllib.error.URLError("network is unreachable")))
+    chain = build_chain(get_settings())
+    assert chain.complete_text("s", "Скидка?", timeout=3.0)  # ответил mock, исключения нет
+
+    _patch_urlopen(monkeypatch, _FakeHTTP(body={"choices": [{"message": {"content": "ответ API"}}]}))
+    assert build_chain(get_settings()).complete_text("s", "Скидка?", timeout=3.0) == "ответ API"
 
 
 def test_mock_only_mode_never_calls_network(monkeypatch: pytest.MonkeyPatch) -> None:

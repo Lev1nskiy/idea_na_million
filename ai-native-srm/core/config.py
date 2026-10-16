@@ -20,6 +20,11 @@ class Settings:
     db_url: str
     llm_provider: str
     llm_timeout_s: float
+    api_base_url: str
+    api_key: str
+    api_model: str
+    api_max_tokens: int
+    llm_json_mode: bool
     gigachat_credentials: str
     gigachat_scope: str
     gigachat_model: str
@@ -85,6 +90,16 @@ def get_settings() -> Settings:
         # Бюджет времени на один вызов модели. Облачные модели не всегда укладываются в доли
         # секунды: если ответ не успел — цепочка уходит к следующему провайдеру и дальше в mock.
         llm_timeout_s=_env_float("LLM_TIMEOUT_S", 2.5),
+        # Любая API-модель с OpenAI-совместимым чатом (OpenAI, OpenRouter, DeepSeek, Groq, Qwen,
+        # Mistral, Together, vLLM…). Источник ключа — LLM_API_* либо привычные OPENAI_*: проекту
+        # всё равно, чей это шлюз, важно только три значения ниже. Пусто → провайдер выключен.
+        api_base_url=os.getenv("LLM_API_BASE_URL") or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        api_key=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY", ""),
+        api_model=os.getenv("LLM_API_MODEL") or os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        api_max_tokens=_env_int("LLM_API_MAX_TOKENS", 800),
+        # Строгий JSON-режим (`response_format`): включён — провайдер обязан вернуть объект,
+        # выключен — JSON достаётся из текста. Поддерживают не все шлюзы, поэтому по умолчанию нет.
+        llm_json_mode=_env_bool("LLM_JSON_MODE", False),
         gigachat_credentials=os.getenv("GIGACHAT_CREDENTIALS", ""),
         gigachat_scope=os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS"),
         gigachat_model=os.getenv("GIGACHAT_MODEL", "GigaChat-2"),

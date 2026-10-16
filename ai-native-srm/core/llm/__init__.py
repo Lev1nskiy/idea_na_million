@@ -1,24 +1,32 @@
-"""Фабрика LLM-провайдеров и цепочка fallback: облако → облако → Mock.
+"""Фабрика LLM-провайдеров и цепочка fallback: API-модель → облака → локальная → Mock.
 
 Порядок задаётся `LLM_PROVIDER`:
 
-* `auto` (по умолчанию) — сначала облако, если для него есть ключи: `gigachat`, затем `yandex`,
-  затем локальная модель, если задан `LOCAL_MODEL`;
-* `gigachat` / `yandex` — этот провайдер первым, второй облачный остаётся следующим шагом;
+* `auto` (по умолчанию) — сначала провайдеры, у которых есть ключи: `api` (любая API-модель
+  с OpenAI-совместимым чатом: OpenAI, OpenRouter, DeepSeek, Groq, Qwen…), затем `gigachat`,
+  затем `yandex`, затем локальные веса, если задан `LOCAL_MODEL`;
+* `api` — своя API-модель первой (у остальных ключей может и не быть);
+* `gigachat` / `yandex` — вендорский провайдер первым: остальные остаются следующим шагом;
 * `yandex,gigachat` — явный порядок цепочки (через запятую);
 * `mock` — только демо-движок, без обращений в сеть.
 
-Mock всегда замыкает цепочку: без него движок остался бы без ответа при недоступном облаке.
+Поэтому «GigaChat или YandexGPT» — больше не единственный облачный вариант: любая API-модель
+включается тремя переменными (`LLM_API_BASE_URL`, `LLM_API_KEY`, `LLM_API_MODEL`) и встаёт
+первой в очереди; вендорские провайдеры остаются запасом, а `LLM_PROVIDER=api,mock` убирает их
+из цепочки совсем. Mock всегда замыкает цепочку: без него движок остался бы без ответа при
+недоступном провайдере.
 """
 from __future__ import annotations
 
 import logging
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 from typing import Any, Callable
 
 from core.config import Settings, get_settings
+from core.llm.api import AnyApiLLM
 from core.llm.base import (
     DEFAULT_TIMEOUT_S,
     LLMError,
@@ -32,6 +40,7 @@ from core.llm.mock import MockLLM
 from core.llm.yandex import YandexGPTLLM
 
 __all__ = [
+    "AnyApiLLM",
     "FallbackChain",
     "LLMError",
     "LLMInvalidResponse",
@@ -48,8 +57,22 @@ logger = logging.getLogger(__name__)
 _EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="llm")
 
 #: Провайдеры, которые включаются автоматически, если они настроены (порядок = приоритет).
-#: `local` — единственный бесплатный вариант: открытые веса на своей машине (см. docs/llm_setup.md).
-AUTO_ORDER = ("gigachat", "yandex", "local")
+#: `api` — любая API-модель (OpenAI-совместимый чат): встаёт первой, потому что вендор не важен,
+#: важен только эндпоинт. `local` — бесплатный вариант: открытые веса на своей машине
+#: (см. docs/llm_setup.md, там же — как заменить GigaChat/YandexGPT своей моделью).
+AUTO_ORDER = ("api", "gigachat", "yandex", "local")
+
+#: Синонимы имён провайдеров в LLM_PROVIDER: «openai»/«openrouter» и т.п. — это всё провайдер `api`.
+_ALIASES = {
+    "openai": "api",
+    "openrouter": "api",
+    "deepseek": "api",
+    "groq": "api",
+    "qwen": "api",
+    "mistral": "api",
+    "together": "api",
+    "vllm": "api",
+}
 
 
 class FallbackChain:
@@ -140,6 +163,31 @@ def _yandex(s: Settings) -> LLMProvider | None:
     )
 
 
+def _api_enabled(s: Settings) -> bool:
+    """Провайдер `api` включён, если задан ключ ИЛИ явно задан базовый URL.
+
+    Безключевой вариант нужен для внутренних шлюзов и прокси (свой vLLM, корпоративный
+    OpenAI-совместимый endpoint): там авторизации нет, но адрес задают руками — это и есть сигнал,
+    что провайдером хотят пользоваться.
+    """
+    if not s.api_model:
+        return False
+    return bool(s.api_key or os.getenv("LLM_API_BASE_URL") or os.getenv("OPENAI_BASE_URL"))
+
+
+def _api(s: Settings) -> LLMProvider | None:
+    """Любая API-модель: ключ + базовый URL + имя модели (у последних двух есть умолчания)."""
+    if not _api_enabled(s):
+        return None
+    return AnyApiLLM(
+        model=s.api_model,
+        base_url=s.api_base_url,
+        api_key=s.api_key,
+        max_tokens=s.api_max_tokens,
+        json_mode=s.llm_json_mode,
+    )
+
+
 def _local(s: Settings) -> LLMProvider | None:
     if not s.local_model:
         return None
@@ -148,10 +196,12 @@ def _local(s: Settings) -> LLMProvider | None:
         base_url=s.local_base_url,
         api_key=s.local_api_key,
         max_tokens=s.local_max_tokens,
+        json_mode=s.llm_json_mode,
     )
 
 
 _FACTORIES: dict[str, Callable[[Settings], LLMProvider | None]] = {
+    "api": _api,
     "gigachat": _gigachat,
     "yandex": _yandex,
     "local": _local,
@@ -163,11 +213,17 @@ def _requested(s: Settings) -> list[str]:
     names = [name.strip() for name in s.llm_provider.split(",") if name.strip()]
     if not names or "auto" in names:
         return list(AUTO_ORDER)
-    return names
+    # «openai» и «openrouter» — это один и тот же провайдер `api` со своими LLM_API_* значениями.
+    return [_ALIASES.get(name, name) for name in names]
 
 
 def _missing(s: Settings, name: str) -> list[str]:
     """Каких переменных не хватает провайдеру — это же подсказывает и /api/health."""
+    if name == "api":
+        # Ключ нужен облачным шлюзам; внутреннему прокси хватает явного LLM_API_BASE_URL.
+        return [] if _api_enabled(s) else [
+            "LLM_API_KEY (или OPENAI_API_KEY) либо LLM_API_BASE_URL для шлюза без ключа"
+        ]
     if name == "gigachat":
         return [] if s.gigachat_credentials else ["GIGACHAT_CREDENTIALS"]
     if name == "yandex":

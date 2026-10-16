@@ -1,6 +1,7 @@
 """Проверка LLM-провайдеров: что настроено, кто реально отвечает и с какой задержкой.
 
     python scripts/llm_check.py              # опросить все провайдеры, у которых есть ключи
+    python scripts/llm_check.py --provider api        # любая API-модель из LLM_API_*
     python scripts/llm_check.py --provider yandex
     python scripts/llm_check.py --json       # вывод в JSON (для CI/автоматизации)
 
@@ -60,8 +61,10 @@ def check(name: str, provider: Any, timeout: float) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Проверка подключения GigaChat и YandexGPT")
-    parser.add_argument("--provider", default="", help="проверить только его: gigachat|yandex|mock")
+    parser = argparse.ArgumentParser(description="Проверка подключения LLM-провайдеров")
+    parser.add_argument(
+        "--provider", default="", help="проверить только его: api|gigachat|yandex|local|mock"
+    )
     parser.add_argument("--timeout", type=float, default=0.0, help="бюджет времени, с (по умолчанию LLM_TIMEOUT_S)")
     parser.add_argument("--json", action="store_true", help="машинный вывод")
     args = parser.parse_args()

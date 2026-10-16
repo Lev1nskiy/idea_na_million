@@ -118,7 +118,7 @@ GET /api/outbox         канал забирает ответ и отдаёт �
 | `core/privacy.py` | маскирование ПДн в логах/событиях/инцидентах (Ст. 4) |
 | `core/rag.py` | поиск по базе знаний (`data/knowledge_base.md`) |
 | `core/portability.py` | экспорт/импорт состояния, бэкап SQLite |
-| `core/llm/*` | провайдеры: mock (тесты/демо), Gigachat, YandexGPT, общий базовый класс |
+| `core/llm/*` | провайдеры: mock (тесты/демо), любая API-модель (`api`), GigaChat, YandexGPT, локальные веса, общая база для OpenAI-совместимого чата |
 | `app/routers/*` | 8 роутеров: messages, conversations, clients, deals, policy, notifications, metrics, admin |
 | `channels/telegram_lead_bot.py` | транспорт бота: меню-виджет, inline-навигация, доставка ответов, уведомления менеджеру, `--check` |
 | `channels/bot_flow.py` + `bot_ui.py` | диалог бота и экраны: состояния, кнопки, тексты — без aiogram и сети |

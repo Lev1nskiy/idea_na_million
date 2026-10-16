@@ -48,11 +48,15 @@ python scripts\bind_telegram.py --list      # кто из клиентов пр�
 Бот — тонкий адаптер: он только доставляет сообщения в `/api/messages` и показывает ответы
 из `/api/outbox`. Вся логика остаётся в `core/`, поэтому бот не «знает» ни про скидки, ни про политику.
 
-### Облачные LLM: GigaChat и YandexGPT (необязательно)
+### LLM: любая API-модель, GigaChat, YandexGPT или свои веса (необязательно)
 
-Цепочка провайдеров: **GigaChat → YandexGPT → Local → Mock**. Модель формулирует текст, числа и решения
-считает код — поэтому подключение LLM не меняет поведение движка, только качество речи. Без ключей
-система полностью работоспособна на mock, а ключи включают облако с первого же запроса:
+Цепочка провайдеров: **Any API → GigaChat → YandexGPT → Local → Mock**. Модель формулирует текст,
+числа и решения считает код — поэтому подключение LLM не меняет поведение движка, только качество
+речи. Без ключей система полностью работоспособна на mock, а ключи включают облако с первого же
+запроса.
+
+Первый провайдер универсальный: любая модель с OpenAI-совместимым API (OpenRouter, DeepSeek, Groq,
+Qwen, OpenAI, Mistral, свой шлюз) — три строки в `.env`, код не меняется:
 
 ```powershell
 pip install -r requirements-llm.txt      # SDK GigaChat (YandexGPT работает без пакетов)
@@ -60,7 +64,12 @@ python scripts\llm_check.py             # проверить ключи, зад�
 ```
 
 ```dotenv
-LLM_PROVIDER=auto                        # или gigachat | yandex | gigachat,yandex — явный порядок
+LLM_API_BASE_URL=https://api.deepseek.com/v1   # OpenAI, OpenRouter, Groq, Qwen… любой шлюз
+LLM_API_KEY=<ключ провайдера>
+LLM_API_MODEL=deepseek-chat                    # LLM_PROVIDER=api,mock — и вендоры не нужны
+
+# или вендорские API (152-ФЗ: серверы в РФ)
+LLM_PROVIDER=auto                        # auto | api,mock | gigachat,api — явный порядок
 GIGACHAT_CREDENTIALS=<ключ авторизации>  # личный кабинет GigaChat API
 YANDEX_API_KEY=<API-ключ>                # сервисный аккаунт с ролью ai.languageModels.user
 YANDEX_FOLDER_ID=<каталог>
@@ -151,7 +160,8 @@ python -m channels.mock_telegram --demo             # весь диалог бо
 ## Документация
 
 * `docs/architecture.md` — слои, путь сообщения, **таблица «Статья Устава → механизм в коде»**, деплой.
-* `docs/llm_setup.md` — **подключение GigaChat и YandexGPT**: ключи, scope, сертификат, диагностика.
+* `docs/llm_setup.md` — **подключение LLM**: любая API-модель, GigaChat, YandexGPT, свои веса,
+  ключи, scope, сертификат, диагностика.
 * `docs/llm_choice.md` — сравнение провайдеров, стратегия промптов, план бенчмарка.
 * `docs/pitch.md` — проблема, решение, сценарий демо, экономика, честные допущения.
 * `docs/api.md` — все эндпоинты и порядок показа демо.
@@ -163,7 +173,7 @@ python -m channels.mock_telegram --demo             # весь диалог бо
 | Шаг | Что | Статус |
 |---|---|---|
 | 1 | фундамент: модели, БД, каталог, CLI | готов |
-| 2 | LLM-слой: mock / GigaChat / YandexGPT + fallback (подключение облака — `docs/llm_setup.md`) | готов |
+| 2 | LLM-слой: mock / любая API-модель / GigaChat / YandexGPT / локальные веса + fallback (подключение — `docs/llm_setup.md`) | готов |
 | 3 | guardrails, RAG, метрики | готов |
 | 4 | Smooth & Hold, handoff, шаблоны | готов |
 | 5 | FastAPI + Streamlit-стенд + перенос данных | готов |
