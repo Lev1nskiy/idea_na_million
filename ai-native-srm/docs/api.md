@@ -1,5 +1,9 @@
 # API и UI (шаги 5–6)
 
+Часть ручек — фасады внешних поверхностей: сайт менеджера ходит через `/api/site/*`
+(`app/routers/ui_bridge.py`, сессия сотрудника), Telegram-бот — через `/api/bot/*`
+(`app/routers/bot_api.py`, сервисный токен `X-Bot-Token`). Описание бота — `docs/lead_bot.md`.
+
 Запуск двух процессов (или `docker-compose` после Шага 6):
 
 ```bash
@@ -36,6 +40,13 @@ streamlit run ui/Home.py --server.port 8501            # UI (страницы 1�
 | GET | `/api/decisions` | журнал решений (категория, маршрут, версия политики) |
 | GET | `/api/clients`, `/api/clients/{id}` | выбор клиента в UI (без телефонов/почты, Ст. 4); `telegram_id` — только с `X-Admin-Token` |
 | GET | `/api/clients/by-telegram/{telegram_id}` | резолв клиента для Telegram-бота: `{client_id}` или 404 (ПДн не отдаются) |
+| GET | `/api/bot/me` | фасад бота: карточка клиента по `telegram_id` (`X-Bot-Token`) |
+| POST | `/api/bot/me` | сохранить профиль клиента; заводит карточку и уведомляет менеджера (`LEAD`) |
+| GET | `/api/bot/me/appeals`, `/api/bot/me/appeals/{id}` | мои обращения и переписка по ним |
+| POST | `/api/bot/me/appeals/{id}/manager` | клиент позвал менеджера → HOLD + уведомление `HANDOFF_REQUEST` |
+| POST | `/api/bot/me/appeals/{id}/close` | клиент закрыл обращение (resolve) |
+| POST | `/api/bot/messages` | сообщение клиента из Telegram в пайплайн (как `POST /api/messages`, но с проверкой владельца); ответы приходят с `role: "ai"` и сразу считаются доставленными |
+| POST | `/api/bot/me/inbox` | недоставленные ответы ИИ и менеджера для клиента (доставка «at-least-once»); у каждого элемента `role`: `manager` / `ai` / `""` |
 | GET | `/api/deals`, `/api/deals/{id}`, PUT `/api/deals/{id}` | карточки сделок |
 | GET | `/api/policy`, PUT `/api/policy`, GET `/api/policy/history` | Policy Management (каждая правка — новая версия) |
 | GET | `/api/notifications`, POST `/api/notifications/{id}/read`, POST `/api/notifications/read-all` | уведомления менеджеру |

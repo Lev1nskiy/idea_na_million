@@ -29,16 +29,19 @@ python -m streamlit run ui\Home.py             # демо-стенд на http:/
 
 ### Telegram-бот (необязательно)
 
+Единственный канал клиента: меню из восьми разделов — профиль, обращения, чат с ИИ, вызов
+менеджера, помощь с базой знаний, каталог, настройки. Клиент не ходит на сайт: там работает
+менеджер и видит ту же переписку.
+
 ```powershell
-# .env: TG_BOT_TOKEN=<токен от @BotFather>, TG_MANAGER_CHAT_ID=<id менеджера>
-python -m channels.telegram_bot --check     # проверяет окружение без запуска бота
-python -m channels.telegram_bot             # клиентский чат + уведомления менеджеру
-python -m channels.telegram_lead_bot --check # бот-анкета: настройки и доступность API
-python -m channels.telegram_lead_bot         # бот-анкета: заявка → карточка клиента
+python -m channels.mock_telegram --demo      # весь диалог в терминале: без токенов, сети и модели
+python -m channels.mock_telegram             # то же, но интерактивно (mock-CRM и mock-ИИ)
+# .env: TG_LEAD_BOT_TOKEN=<токен от @BotFather>, TG_MANAGER_CHAT_ID=<id менеджера>
+python -m channels.telegram_lead_bot --check # настройки, бот в Telegram, API, провайдер LLM
+python -m channels.telegram_lead_bot         # бот: меню, обращения, чат с ИИ, доставка ответов
 python -m channels.telegram_lead_bot --drop-webhook      # если запуск падал с TelegramConflictError
 python scripts\check_telegram.py                         # почему не приходят данные из Telegram
 python scripts\check_lead_pipeline.py --site http://localhost:3000   # приёмка канала бот → CRM → сайт
-# сайт без CRM_BACKEND_URL работает на демо-данных: в интерфейсе появится предупреждение,
 python scripts\bind_telegram.py --list      # кто из клиентов привязан к Telegram
 ```
 
@@ -113,8 +116,9 @@ docker compose run --rm backup              # снимок БД с ротаци�
 core/       логика: perception → understanding → decision → action → guardrails → learning
            (policy, tools, smooth_hold, handoff, templates, guardrails, privacy, rag, llm/*)
 app/        FastAPI: /api/messages, conversations, deals, clients, policy, metrics, admin
-channels/   адаптеры транспорта: telegram_bot (aiogram 3), telegram_lead_bot,
-            lead_flow (анкета без aiogram), email_imap (заглушка)
+channels/   адаптеры транспорта: telegram_lead_bot (aiogram 3 — бот с меню),
+            bot_flow/bot_ui (диалог и экраны), mock_crm/mock_telegram (офлайн-прогон),
+            lead_flow (анкета без aiogram), manager_feed, email_imap (заглушка)
 ui/         Streamlit-стенд: чат клиента, дашборд менеджера, политика, метрики безопасности
 scripts/    seed_demo, export_state, import_state, db_backup, bind_telegram, chat_cli
 data/       каталог, клиенты и заказы, шаблоны КП, база знаний, Устав, policy_seed
@@ -128,7 +132,7 @@ FastAPI, Streamlit и Telegram — его можно запускать из CLI
 ## Тесты
 
 ```powershell
-python -m pytest -q                  # 399 тестов, сеть не нужна (провайдеры подменяются)
+python -m pytest -q                  # 441 тест, сеть не нужна (провайдеры и каналы подменяются)
 python -m pytest tests\test_scenarios.py -q -v
 ```
 
@@ -139,8 +143,9 @@ tools (включая кросс-клиентские утечки), метри�
 Минимальный набор для проверки перед показом:
 
 ```powershell
-python -m pytest tests\test_scenarios.py tests\test_telegram.py -q      # сценарии и бот
-python -m channels.telegram_bot --check                                  # бот видит API и привязки
+python -m pytest tests\test_scenarios.py tests\test_bot_flow.py tests\test_bot_api.py -q  # сценарии и бот
+python -m channels.telegram_lead_bot --check        # бот видит API и провайдера LLM
+python -m channels.mock_telegram --demo             # весь диалог бота в терминале
 ```
 
 ## Документация

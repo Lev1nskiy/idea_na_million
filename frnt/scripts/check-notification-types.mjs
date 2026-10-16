@@ -52,18 +52,18 @@ function backendTypes() {
   };
   walk(BACKEND);
 
-  // сначала собираем константы вида NOTIFY_TYPE = "LEAD" по всему бэкенду,
-  // иначе Notification(type=NOTIFY_TYPE) выглядит как неизвестный тип
-  const constants = new Map();
-  for (const src of files) {
-    for (const m of src.matchAll(/^([A-Z][A-Z0-9_]*)\s*=\s*"([A-Z_]+)"/gm)) constants.set(m[1], m[2]);
-  }
+  // Константы вида NOTIFY_TYPE = "LEAD" собираем по файлам: сначала ищем в том же файле,
+  // где стоит Notification(type=…), и только потом — по всему бэкенду. Иначе одинаковое
+  // имя константы в двух местах (NOTIFY_TYPE есть и у заявок, и у бота) подменяло бы тип.
+  const constantsOf = (src) =>
+    new Map([...src.matchAll(/^([A-Z][A-Z0-9_]*)\s*=\s*"([A-Z_]+)"/gm)].map((m) => [m[1], m[2]]));
 
   const found = new Set();
   for (const src of files) {
+    const local = constantsOf(src);
     for (const m of src.matchAll(/Notification\(\s*type\s*=\s*([A-Za-z_][A-Za-z0-9_]*)/g)) {
       const raw = m[1];
-      if (constants.has(raw)) found.add(constants.get(raw));
+      if (local.has(raw)) found.add(local.get(raw));
       else if (/^[A-Z_]+$/.test(raw)) found.add(raw);
     }
   }

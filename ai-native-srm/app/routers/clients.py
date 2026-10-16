@@ -3,7 +3,7 @@
 Правило приватности: открытые ответы содержат только имя, статус и компанию.
 Идентификатор Telegram (`telegram_id`) — персональный идентификатор: он отдаётся
 только при валидном заголовке `X-Admin-Token` (Ст. 4). Поиск по telegram_id нужен
-адаптеру Telegram (channels/telegram_bot.py) и возвращает лишь `client_id`.
+Telegram-боту (channels/telegram_lead_bot.py) и возвращает лишь `client_id`.
 """
 from __future__ import annotations
 

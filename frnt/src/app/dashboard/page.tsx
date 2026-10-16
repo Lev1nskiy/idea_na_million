@@ -43,6 +43,7 @@ const NTYPE: Record<string, NotifMeta> = {
   OVERRIDE_DUE: { icon: BellRing, tone: "text-acc2", label: "Нужно решение" },
   REMINDER: { icon: Bell, tone: "text-dim", label: "Напоминание" },
   LEAD: { icon: UserRoundPlus, tone: "text-mint", label: "Заявка из бота" },
+  HANDOFF_REQUEST: { icon: Handshake, tone: "text-acc", label: "Клиент зовёт менеджера" },
 };
 
 const DEFAULT_META: NotifMeta = { icon: Bell, tone: "text-dim", label: "Уведомление" };

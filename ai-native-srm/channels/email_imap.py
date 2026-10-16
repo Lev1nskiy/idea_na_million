@@ -19,7 +19,7 @@ from typing import NoReturn
 
 NOT_IMPLEMENTED_MESSAGE = (
     "IMAP-канал не реализован в MVP: по плану (roadmap п. 0 №11) он в Future. "
-    "Используйте web-чат (ui/) или Telegram (channels/telegram_bot.py)."
+    "Используйте клиентский сайт (ui/) или Telegram (channels/telegram_lead_bot.py)."
 )
 
 

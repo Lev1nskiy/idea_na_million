@@ -54,6 +54,11 @@ def _stems(text: str) -> set[str]:
     return stems
 
 
+def sections() -> tuple[KbChunk, ...]:
+    """Все разделы базы знаний по порядку — из них собирается меню «Помощь и FAQ» в боте."""
+    return _chunks()
+
+
 def search(query: str, k: int = 2, min_score: float = 2.0) -> list[KbChunk]:
     """Лучшие разделы базы знаний по запросу (пусто, если ничего релевантного)."""
     query_stems = _stems(query)
