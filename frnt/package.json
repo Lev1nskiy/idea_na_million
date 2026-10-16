@@ -6,7 +6,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:notif": "node scripts/check-notification-types.mjs && node scripts/check-notif-render.mjs"
   },
   "dependencies": {
     "dotenv": "17.3.1",

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlarmClockCheck, Bell, BellRing, CheckCheck, CircleCheckBig, Clock3, Handshake,
-  ShieldAlert, Swords, UserRoundCheck, Volume2,
+  ShieldAlert, Swords, UserRoundCheck, UserRoundPlus, Volume2,
 } from "lucide-react";
 import { api, type ConvDetail, type ConvListItem, type NotificationDto } from "@/lib/api";
 import { useNow, usePolling } from "@/lib/hooks";
@@ -18,12 +18,31 @@ const COLS: { status: ConvStatus; title: string; hint: string }[] = [
   { status: "HANDOFF", title: "Менеджер", hint: "человек в диалоге" },
 ];
 
-const NTYPE = {
+interface NotifMeta { icon: typeof Bell; tone: string; label: string }
+
+/**
+ * Вид уведомления → иконка и подпись. Таблица открытая (Record, а не набор констант):
+ * бэкенд может добавить новый тип — например `LEAD` из Telegram-бота-анкеты, — и лента
+ * не должна из-за этого падать. Неизвестный тип показываем нейтрально.
+ */
+const NTYPE: Record<string, NotifMeta> = {
   DISPUTE: { icon: Swords, tone: "text-danger", label: "Спор" },
   SECURITY: { icon: ShieldAlert, tone: "text-amber", label: "Инъекция" },
   OVERRIDE_DUE: { icon: BellRing, tone: "text-acc2", label: "Нужно решение" },
   REMINDER: { icon: Bell, tone: "text-dim", label: "Напоминание" },
-} as const;
+  LEAD: { icon: UserRoundPlus, tone: "text-mint", label: "Заявка из бота" },
+};
+
+const DEFAULT_META: NotifMeta = { icon: Bell, tone: "text-dim", label: "Уведомление" };
+
+/**
+ * Вид уведомления → иконка и подпись, с запасным вариантом для неизвестных типов.
+ * Экспортируется не для интерфейса, а чтобы это правило проверялось тестом:
+ * `npm run check:notif` (см. scripts/render-notif-meta.mjs).
+ */
+export function notificationMeta(type: string): NotifMeta {
+  return NTYPE[type] ?? DEFAULT_META;
+}
 
 export default function DashboardPage() {
   const [list, setList] = useState<ConvListItem[]>([]);
@@ -110,12 +129,12 @@ export default function DashboardPage() {
           <div className="max-h-[calc(100vh-226px)] space-y-2 overflow-y-auto p-2.5">
             {notif.length === 0 && <p className="p-3 text-[11.5px] text-dim">Пока пусто. Спор или инъекция из чата появятся здесь мгновенно.</p>}
             {notif.map((n) => {
-              const meta = NTYPE[n.type];
+              const meta = notificationMeta(n.type);
               const Icon = meta.icon;
               return (
                 <button
                   key={n.id}
-                  onClick={() => setSelectedId(n.convId)}
+                  onClick={() => (n.convId ? setSelectedId(n.convId) : void act(() => api.readNotification(n.id)))}
                   className={cx(
                     "w-full rounded-xl border p-3 text-left transition",
                     n.active ? "border-danger/30 bg-danger/[0.06] hover:border-danger/60" : "border-edge bg-white/[0.02] opacity-55 hover:opacity-90",

@@ -15,6 +15,7 @@ from typing import Any
 
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.background import BackgroundTask
 from sqlmodel import func, select
 
 from app import models as m
@@ -102,7 +103,12 @@ async def run_import(
 
 
 def build_backup() -> FileResponse:
-    """Скачивание файла БД: имя с датой, чтобы снимки не перезаписывали друг друга."""
+    """Скачивание файла БД: имя с датой, чтобы снимки не перезаписывали друг друга.
+
+    Снимок делается во временный файл (иначе пришлось бы держать в памяти весь файл БД).
+    Файл в архиве браузера — копия; временную копию на сервере удаляем сразу после отправки,
+    чтобы каждый «Скачать БД» не оставлял за собой мусор в /tmp.
+    """
     path = db_backup_file()
     from core.schemas import utcnow
 
@@ -110,6 +116,7 @@ def build_backup() -> FileResponse:
         path,
         media_type="application/octet-stream",
         filename=f"crm-{utcnow():%Y-%m-%d-%H%M}.sqlite3",
+        background=BackgroundTask(path.unlink, missing_ok=True),
     )
 
 
