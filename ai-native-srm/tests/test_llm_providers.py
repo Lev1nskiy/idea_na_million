@@ -522,6 +522,17 @@ def test_provider_alias_and_explicit_order(monkeypatch: pytest.MonkeyPatch) -> N
     assert [p.name for p in build_chain(get_settings()).providers] == ["gigachat", "api", "mock"]
 
 
+def test_example_env_does_not_enable_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`.env.example` скопировали как есть → пустые LLM_API_* не включают провайдера: отвечает mock."""
+    _isolate(monkeypatch)
+    monkeypatch.setenv("LLM_PROVIDER", "auto")
+    monkeypatch.setenv("LLM_API_BASE_URL", "")
+    monkeypatch.setenv("LLM_API_KEY", "")
+    monkeypatch.setenv("LLM_API_MODEL", "")
+
+    assert [p.name for p in build_chain(get_settings()).providers] == ["mock"]
+
+
 def test_api_gateway_without_key_needs_explicit_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """Внутренний шлюз без авторизации: явный LLM_API_BASE_URL сам включает провайдера."""
     _isolate(monkeypatch)
