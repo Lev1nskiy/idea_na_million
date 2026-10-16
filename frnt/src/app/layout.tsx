@@ -12,7 +12,7 @@ const jbmono = JetBrains_Mono({ subsets: ["latin", "cyrillic"], variable: "--fon
 
 export const metadata: Metadata = {
   title: "ЛОСЬ — AI-native CRM",
-  description: "Демо-фронтенд AI-native CRM: чат клиента, дашборд менеджера, Policy Management, безопасность и метрики.",
+  description: "Демо-фронтенд AI-native CRM: чат менеджера с ИИ-диалогами, уведомления, Policy Management, безопасность и метрики.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

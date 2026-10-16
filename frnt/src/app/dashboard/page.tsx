@@ -1,9 +1,17 @@
 "use client";
 
+// Рабочее место менеджера: лента уведомлений + чат менеджера.
+//
+// Клиент на сайте не пишет: его канал — Telegram (клиентский бот) или другой внешний канал.
+// Сюда, в дашборд, стекаются все диалоги ИИ с клиентами. Менеджер видит переписку в реальном
+// времени, может ответить (ответ автоматически переводит диалог на него) и переопределить
+// решение ИИ. Лента уведомлений узкая и компактная — она подсказывает, куда смотреть,
+// а основное место занимает сам чат.
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlarmClockCheck, Bell, BellRing, CheckCheck, CircleCheckBig, Clock3, Handshake,
-  ShieldAlert, Swords, UserRoundCheck, UserRoundPlus, Volume2,
+  AlarmClockCheck, Bell, BellRing, CheckCheck, ChevronDown, CircleCheckBig, Clock3, Handshake,
+  Inbox, ShieldAlert, Swords, UserRoundCheck, UserRoundPlus, Volume2,
 } from "lucide-react";
 import { api, type ConvDetail, type ConvListItem, type NotificationDto } from "@/lib/api";
 import { useNow, usePolling } from "@/lib/hooks";
@@ -12,11 +20,15 @@ import { Btn, CategoryChip, Chip, Glass, PageHeader, StatusChip, cx, inputCls } 
 import { Bubble } from "@/components/Bubble";
 import type { ConvStatus } from "@/lib/types";
 
-const COLS: { status: ConvStatus; title: string; hint: string }[] = [
-  { status: "ACTIVE", title: "Автономно", hint: "ИИ работает сам" },
-  { status: "HOLD", title: "HOLD", hint: "ждут подключения менеджера" },
-  { status: "HANDOFF", title: "Менеджер", hint: "человек в диалоге" },
-];
+/** Статус диалога: подпись и цвет — единые для списка, шапки чата и счётчиков. */
+const STATUS_META: Record<Exclude<ConvStatus, "RESOLVED">, { title: string; hint: string; tone: "mint" | "danger" | "acc" }> = {
+  ACTIVE: { title: "Автономно", hint: "ИИ ведёт сам", tone: "mint" },
+  HOLD: { title: "HOLD", hint: "нужен менеджер", tone: "danger" },
+  HANDOFF: { title: "Менеджер", hint: "вы в диалоге", tone: "acc" },
+};
+
+/** Порядок в списке: сначала то, что требует человека. */
+const STATUS_ORDER: ConvStatus[] = ["HOLD", "HANDOFF", "ACTIVE"];
 
 interface NotifMeta { icon: typeof Bell; tone: string; label: string }
 
@@ -44,6 +56,13 @@ export function notificationMeta(type: string): NotifMeta {
   return NTYPE[type] ?? DEFAULT_META;
 }
 
+/** Порядок в ленте: сначала непрочитанные активные, затем прочитанные, затем закрытые. */
+function feedWeight(n: NotificationDto): number {
+  if (n.active && !n.read) return 0;
+  if (n.active) return 1;
+  return 2;
+}
+
 export default function DashboardPage() {
   const [list, setList] = useState<ConvListItem[]>([]);
   const [notif, setNotif] = useState<NotificationDto[]>([]);
@@ -51,20 +70,20 @@ export default function DashboardPage() {
   const [detail, setDetail] = useState<ConvDetail | null>(null);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
+  const [feedOnlyNew, setFeedOnlyNew] = useState(true);
+  const [showSummaryDetails, setShowSummaryDetails] = useState(false);
+  const [showDecisions, setShowDecisions] = useState(false);
+  const [listVisible, setListVisible] = useState(true); // узкий экран: список ↔ чат
   const now = useNow(1000);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const prevCount = useRef(0);
+  const pickedOnce = useRef(false);
 
   const refresh = async () => {
     try {
       const [c, n] = await Promise.all([api.conversations(), api.notifications()]);
       setList(c.conversations);
       setNotif(n.notifications);
-      if (n.unread > prevCount.current && typeof window !== "undefined") {
-        // визуальный индикатор новых DISPUTE-уведомлений (без звука — автоплей запрещён браузерами)
-      }
-      prevCount.current = n.unread;
-    } catch { /* офлайн */ }
+    } catch { /* офлайн: оставляем прежние данные на экране */ }
   };
   usePolling(refresh, 3000);
 
@@ -76,22 +95,36 @@ export default function DashboardPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [detail?.messages.length]);
 
-  const byStatus = useMemo(() => {
-    const m = new Map<ConvStatus, ConvListItem[]>();
-    for (const c of COLS) m.set(c.status, []);
-    for (const conv of list) {
-      if (conv.status === "RESOLVED") continue;
-      m.get(conv.status)?.push(conv);
+  // Первый вход: сразу открываем HOLD-диалог (или любой первый) — менеджер не видит пустоту.
+  useEffect(() => {
+    if (pickedOnce.current || selectedId || list.length === 0) return;
+    const hold = list.find((c) => c.status === "HOLD");
+    const first = hold ?? list.find((c) => c.status !== "RESOLVED");
+    if (first) {
+      pickedOnce.current = true;
+      setSelectedId(first.id);
     }
-    return m;
+  }, [list, selectedId]);
+
+  const order = useMemo(() => {
+    const map = new Map<string, number>(STATUS_ORDER.map((s, i) => [s, i]));
+    return [...list]
+      .filter((c) => c.status !== "RESOLVED")
+      .sort((a, b) => (map.get(a.status) ?? 9) - (map.get(b.status) ?? 9) || b.waitingMinutes - a.waitingMinutes);
   }, [list]);
 
-  const counts = {
-    ACTIVE: byStatus.get("ACTIVE")?.length ?? 0,
-    HOLD: byStatus.get("HOLD")?.length ?? 0,
-    HANDOFF: byStatus.get("HANDOFF")?.length ?? 0,
-  };
-  const unreadDisputes = notif.filter((n) => n.active && !n.read && n.type === "DISPUTE").length;
+  const counts = useMemo(() => ({
+    ACTIVE: list.filter((c) => c.status === "ACTIVE").length,
+    HOLD: list.filter((c) => c.status === "HOLD").length,
+    HANDOFF: list.filter((c) => c.status === "HANDOFF").length,
+  }), [list]);
+
+  const feed = useMemo(
+    () => [...notif].sort((a, b) => feedWeight(a) - feedWeight(b) || (a.createdAt < b.createdAt ? 1 : -1)),
+    [notif],
+  );
+  const unread = feed.filter((n) => !n.read).length;
+  const shownFeed = feedOnlyNew ? feed.filter((n) => !n.read) : feed;
 
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -102,70 +135,146 @@ export default function DashboardPage() {
     } finally { setBusy(false); }
   };
 
+  const openConversation = (id: string) => {
+    if (!id) return;
+    setSelectedId(id);
+    setListVisible(false); // узкий экран: уходим из списка в чат
+  };
+
+  const select = (c: ConvListItem) => openConversation(c.id);
+
   return (
     <div>
       <PageHeader
-        title="Дашборд менеджера"
-        sub="Споры, инъекции и переопределения попадают сюда мгновенно. Уведомления дублируются каждые N минут, пока вы не возьмёте диалог (Ст. 9)."
+        title="Чат менеджера"
+        sub="Слева — лента уведомлений, остальное — переписка ИИ с клиентом. Клиент пишет в Telegram, вы видите диалог здесь и можете вмешаться в любой момент (Ст. 5, 9)."
         right={
           <>
             <Chip tone="mint">автономно: {counts.ACTIVE}</Chip>
             <Chip tone="danger" className={counts.HOLD ? "hold-pulse" : ""}>
               <Volume2 size={11} /> HOLD: {counts.HOLD}
-              {unreadDisputes > 0 && <span className="mono font-bold">· {unreadDisputes} новых</span>}
             </Chip>
             <Chip tone="acc">менеджер: {counts.HANDOFF}</Chip>
           </>
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[300px_330px_minmax(0,1fr)]">
-        {/* уведомления */}
-        <Glass className="max-h-[calc(100vh-170px)] overflow-hidden">
-          <div className="flex items-center justify-between border-b border-edge px-4 py-3">
-            <span className="text-[10px] uppercase tracking-[0.18em] text-dim">Уведомления</span>
-            <span className="mono text-[10px] text-dim">{notif.filter((n) => n.active).length} активных</span>
+      <div className="grid gap-4 xl:grid-cols-[286px_244px_minmax(0,1fr)]">
+        {/* ---------------------------------------------------------------- лента уведомлений */}
+        <Glass className={cx("flex max-h-[260px] flex-col overflow-hidden xl:max-h-[calc(100vh-170px)]", !listVisible && "hidden xl:flex")}>
+          <div className="flex items-center justify-between gap-2 border-b border-edge px-3 py-2.5">
+            <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-dim">
+              <Inbox size={12} /> Уведомления
+            </span>
+            <button
+              onClick={() => setFeedOnlyNew((v) => !v)}
+              className={cx("rounded-md px-2 py-0.5 text-[10px] transition",
+                feedOnlyNew ? "bg-acc/15 text-txt" : "text-dim hover:text-txt")}
+              title={feedOnlyNew ? "Показать все, включая прочитанные" : "Показать только новые"}
+            >
+              {feedOnlyNew ? `новые · ${unread}` : `все · ${feed.length}`}
+            </button>
           </div>
-          <div className="max-h-[calc(100vh-226px)] space-y-2 overflow-y-auto p-2.5">
-            {notif.length === 0 && <p className="p-3 text-[11.5px] text-dim">Пока пусто. Спор или инъекция из чата появятся здесь мгновенно.</p>}
-            {notif.map((n) => {
+
+          <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+            {shownFeed.length === 0 && (
+              <div className="px-2 py-6 text-center">
+                <CircleCheckBig size={18} className="mx-auto text-mint/70" />
+                <p className="mt-2 text-[11px] text-dim">
+                  {feedOnlyNew ? "Всё разобрано — новых уведомлений нет." : "Уведомлений пока нет."}
+                </p>
+                {feedOnlyNew && feed.length > 0 && (
+                  <button onClick={() => setFeedOnlyNew(false)} className="mt-1 text-[10.5px] text-acc2 underline">
+                    показать прочитанные
+                  </button>
+                )}
+              </div>
+            )}
+
+            {shownFeed.map((n) => {
               const meta = notificationMeta(n.type);
               const Icon = meta.icon;
               return (
-                <button
+                <div
                   key={n.id}
-                  onClick={() => (n.convId ? setSelectedId(n.convId) : void act(() => api.readNotification(n.id)))}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => (n.convId ? openConversation(n.convId) : void act(() => api.readNotification(n.id)))}
+                  onKeyDown={(e) => { if (e.key === "Enter" && n.convId) openConversation(n.convId); }}
                   className={cx(
-                    "w-full rounded-xl border p-3 text-left transition",
-                    n.active ? "border-danger/30 bg-danger/[0.06] hover:border-danger/60" : "border-edge bg-white/[0.02] opacity-55 hover:opacity-90",
-                    selectedId === n.convId && "ring-1 ring-acc/50",
+                    "cursor-pointer rounded-xl border px-2.5 py-2 transition",
+                    n.active && !n.read
+                      ? "border-danger/30 bg-danger/[0.06] hover:border-danger/60"
+                      : "border-edge bg-white/[0.02] opacity-70 hover:opacity-100",
+                    detail?.conversation.id === n.convId && "ring-1 ring-acc/50",
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <Icon size={13} className={meta.tone} />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-dim">{meta.label}</span>
-                    <span className="mono ml-auto flex items-center gap-1 text-[9.5px] text-dim">
-                      <Clock3 size={10} /> ждёт {n.waitingMinutes} мин
-                    </span>
+                  <div className="flex items-center gap-1.5">
+                    <Icon size={12} className={meta.tone} />
+                    <span className="text-[9.5px] font-semibold uppercase tracking-wider text-dim">{meta.label}</span>
+                    <span className="mono ml-auto text-[9px] text-dim/70">{relTime(n.createdAt, now)}</span>
                   </div>
-                  <p className="mt-1.5 text-[11.5px] leading-snug text-txt/90">{n.text}</p>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <div className="flex gap-0.5" title={`уровень эскалации ${n.level}`}>
-                      {Array.from({ length: Math.min(n.level, 6) }).map((_, i) => (
-                        <span key={i} className={cx("h-1 w-3 rounded-full", i === 0 ? "bg-dim/60" : i < 3 ? "bg-amber" : "bg-danger")} />
-                      ))}
-                    </div>
-                    {n.telegram && <Chip tone="sky" className="px-1.5 py-0 text-[9px]">+ telegram</Chip>}
+                  <p className="mt-1 line-clamp-3 text-[11px] leading-snug text-txt/85">{n.text}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     {n.slaBreached && <Chip tone="danger" className="px-1.5 py-0 text-[9px]">SLA просрочен</Chip>}
-                    {!n.read && n.active && (
-                      <span
-                        role="button" tabIndex={0}
+                    {n.convId
+                      ? <Chip tone="dim" className="px-1.5 py-0 text-[9px]">диалог {n.convId}</Chip>
+                      : <Chip tone="mint" className="px-1.5 py-0 text-[9px]">карточка клиента</Chip>}
+                    {!n.read && (
+                      <button
                         onClick={(e) => { e.stopPropagation(); void act(() => api.readNotification(n.id)); }}
-                        className="ml-auto inline-flex cursor-pointer items-center gap-1 text-[9.5px] text-dim hover:text-txt"
+                        className="ml-auto inline-flex items-center gap-1 text-[9.5px] text-dim transition hover:text-txt"
+                        title="Отметить прочитанным"
                       >
                         <CheckCheck size={11} /> прочитано
-                      </span>
+                      </button>
                     )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Glass>
+
+        {/* ------------------------------------------------------------------------ диалоги */}
+        <Glass className={cx("flex max-h-[300px] flex-col overflow-hidden xl:max-h-[calc(100vh-170px)]", !listVisible && "hidden xl:flex")}>
+          <div className="flex items-center justify-between border-b border-edge px-3 py-2.5">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-dim">Диалоги ИИ с клиентами</span>
+            <span className="mono text-[10px] text-dim">{order.length}</span>
+          </div>
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+            {order.length === 0 && (
+              <p className="px-2 py-6 text-center text-[11px] text-dim">
+                Диалогов нет. Как только клиент напишет боту в Telegram, переписка появится здесь.
+              </p>
+            )}
+            {order.map((c) => {
+              const meta = STATUS_META[c.status as Exclude<ConvStatus, "RESOLVED">] ?? STATUS_META.ACTIVE;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => select(c)}
+                  className={cx(
+                    "w-full rounded-xl border px-2.5 py-2 text-left transition",
+                    selectedId === c.id ? "border-acc/60 bg-acc/10" : "border-transparent hover:bg-white/[0.04]",
+                    c.status === "HOLD" && "hold-pulse",
+                  )}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className={cx("size-1.5 shrink-0 rounded-full",
+                      c.status === "HOLD" ? "bg-danger" : c.status === "HANDOFF" ? "bg-acc" : "bg-mint")} />
+                    <span className="truncate text-[12px] font-medium">{c.client?.name ?? c.clientId}</span>
+                    {c.suspicious && <ShieldAlert size={11} className="shrink-0 text-amber" />}
+                    <span className="mono ml-auto shrink-0 text-[9px] text-dim/70">{relTime(c.lastAt, now)}</span>
+                  </div>
+                  <p className="mt-1 truncate text-[10.5px] text-dim">{c.lastMessage}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className={cx("text-[9.5px] font-semibold uppercase tracking-wider",
+                      meta.tone === "danger" ? "text-danger" : meta.tone === "mint" ? "text-mint" : "text-acc")}>
+                      {meta.title}
+                    </span>
+                    <CategoryChip category={c.category} withLabel={false} />
+                    {c.status === "HOLD" && <span className="mono text-[9px] text-danger">ждёт {c.waitingMinutes} мин</span>}
                   </div>
                 </button>
               );
@@ -173,74 +282,38 @@ export default function DashboardPage() {
           </div>
         </Glass>
 
-        {/* колонки диалогов */}
-        <div className="space-y-3 overflow-y-auto xl:max-h-[calc(100vh-170px)]">
-          {COLS.map((col) => {
-            const items = byStatus.get(col.status) ?? [];
-            return (
-              <Glass key={col.status} className={cx("overflow-hidden", col.status === "HOLD" && items.length > 0 && "edge-glow")}>
-                <div className={cx("flex items-center justify-between border-b border-edge px-4 py-2.5", col.status === "HOLD" && items.length > 0 && "bg-danger/[0.07]")}>
-                  <div className="flex items-center gap-2">
-                    <span className={cx("text-[11px] font-semibold uppercase tracking-wider", col.status === "HOLD" ? "text-danger" : col.status === "ACTIVE" ? "text-mint" : "text-acc")}>
-                      {col.title}
-                    </span>
-                    <span className="text-[10px] text-dim">{col.hint}</span>
-                  </div>
-                  <span className="mono text-[11px] text-dim">{items.length}</span>
-                </div>
-                <div className="space-y-1.5 p-2">
-                  {items.length === 0 && <p className="px-2 py-2.5 text-[10.5px] text-dim/70">пусто</p>}
-                  {items.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedId(c.id)}
-                      className={cx(
-                        "w-full rounded-xl border px-3 py-2.5 text-left transition",
-                        selectedId === c.id ? "border-acc/60 bg-acc/10" : "border-transparent hover:bg-white/[0.04]",
-                        c.status === "HOLD" && "hold-pulse",
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-[12.5px] font-medium">{c.client?.name ?? c.clientId}</span>
-                        {c.suspicious && <ShieldAlert size={12} className="shrink-0 text-amber" />}
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-[10.5px] leading-snug text-dim">{c.lastMessage}</p>
-                      <div className="mt-1.5 flex items-center gap-1.5">
-                        <CategoryChip category={c.category} withLabel={false} />
-                        {c.status === "HOLD" && <Chip tone="danger" className="px-1.5 py-0 text-[9px]">ждёт {c.waitingMinutes} мин</Chip>}
-                        <span className="mono ml-auto text-[9.5px] text-dim/70">{relTime(c.lastAt, now)}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </Glass>
-            );
-          })}
-        </div>
-
-        {/* детали диалога */}
-        <Glass className="flex max-h-[calc(100vh-170px)] min-h-[480px] flex-col overflow-hidden">
+        {/* ------------------------------------------------------------------- чат менеджера */}
+        <Glass className={cx("flex min-h-[480px] flex-col overflow-hidden xl:max-h-[calc(100vh-170px)]", listVisible && "hidden xl:flex")}>
           {!detail ? (
             <div className="grid flex-1 place-items-center p-8 text-center">
               <div>
                 <UserRoundCheck size={26} className="mx-auto text-acc/50" />
-                <p className="mt-3 max-w-xs text-[12.5px] text-dim">
-                  Выберите диалог. Для HOLD-карточек сверху откроется 30-секундное саммари ИИ: суть, требования и рекомендуемый диапазон решения (Ст. 8).
+                <p className="mt-3 max-w-sm text-[12.5px] leading-relaxed text-dim">
+                  Выберите диалог в списке. Здесь видно, что ИИ отвечает клиенту, что он решил и почему,
+                  а вы в любой момент можете взять разговор на себя.
                 </p>
               </div>
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap items-center gap-2.5 border-b border-edge px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2 border-b border-edge px-3.5 py-2.5">
+                <button
+                  onClick={() => setListVisible(true)}
+                  className="rounded-md border border-edge px-2 py-1 text-[10.5px] text-dim transition hover:text-txt xl:hidden"
+                >
+                  ← диалоги
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13.5px] font-medium">{detail.client.name}</div>
-                  <div className="text-[10.5px] text-dim">{detail.client.contact} · {detail.client.segment} · {detail.client.note}</div>
+                  <div className="truncate text-[10.5px] text-dim">
+                    {[detail.client.segment, detail.client.contact].filter(Boolean).join(" · ")}
+                  </div>
                 </div>
                 <CategoryChip category={detail.conversation.category} />
                 <StatusChip status={detail.conversation.status} />
                 {detail.conversation.status === "HOLD" && (
                   <Btn tone="mint" disabled={busy} onClick={() => void act(() => api.takeover(detail.conversation.id))}>
-                    <Handshake size={13} /> Takeover
+                    <Handshake size={13} /> Взять в работу
                   </Btn>
                 )}
                 {detail.conversation.status !== "RESOLVED" && (
@@ -250,72 +323,110 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4" ref={scrollRef}>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3.5" ref={scrollRef}>
                 {detail.handoff && detail.handoff.status !== "resolved" && (
-                  <div className="edge-glow glass bg-acc/[0.05] p-4">
-                    <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-acc2">
-                      <AlarmClockCheck size={12} /> Саммари ИИ · читается за 30 с
-                      <Chip tone={detail.handoff.summary.urgency === "high" ? "danger" : detail.handoff.summary.urgency === "medium" ? "amber" : "dim"} className="ml-auto">
+                  <div className="edge-glow glass bg-acc/[0.05] p-3.5">
+                    <button
+                      onClick={() => setShowSummaryDetails((v) => !v)}
+                      className="flex w-full items-center gap-2 text-left text-[10px] uppercase tracking-[0.18em] text-acc2"
+                    >
+                      <AlarmClockCheck size={12} /> Саммари ИИ · 30 секунд на чтение
+                      <ChevronDown size={13} className={cx("ml-auto transition", showSummaryDetails && "rotate-180")} />
+                    </button>
+                    <p className="mt-2 text-[12.5px] font-medium leading-snug">{detail.handoff.summary.essence}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <Chip tone={detail.handoff.summary.urgency === "high" ? "danger" : detail.handoff.summary.urgency === "medium" ? "amber" : "dim"}>
                         срочность: {detail.handoff.summary.urgency}
                       </Chip>
-                    </div>
-                    <p className="mt-2.5 text-[12.5px] font-medium leading-snug">{detail.handoff.summary.essence}</p>
-                    <div className="mt-2.5 grid gap-3 md:grid-cols-2">
-                      <div>
-                        <div className="text-[9.5px] uppercase tracking-wider text-dim">Требования клиента</div>
-                        <ul className="mt-1 space-y-0.5">
-                          {detail.handoff.summary.demands.map((d) => <li key={d} className="text-[11.5px] text-txt/85">· {d}</li>)}
-                        </ul>
-                      </div>
-                      <div>
-                        <div className="text-[9.5px] uppercase tracking-wider text-dim">История</div>
-                        <ul className="mt-1 space-y-0.5">
-                          {detail.handoff.summary.historyDigest.length
-                            ? detail.handoff.summary.historyDigest.map((h) => <li key={h} className="mono text-[10.5px] text-dim">{h}</li>)
-                            : <li className="text-[10.5px] text-dim">история пуста</li>}
-                        </ul>
-                      </div>
-                    </div>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                      {detail.handoff.summary.remedyOptions.map((r) => <Chip key={r} tone="sky">{r}</Chip>)}
                       <Chip tone="mint" className="mono">рекомендация: {detail.handoff.summary.recommendedRange}</Chip>
+                      {detail.handoff.summary.remedyOptions.map((r) => <Chip key={r} tone="sky">{r}</Chip>)}
                     </div>
+                    {showSummaryDetails && (
+                      <div className="mt-2.5 grid gap-3 border-t border-edge pt-2.5 md:grid-cols-2">
+                        <div>
+                          <div className="text-[9.5px] uppercase tracking-wider text-dim">Требования клиента</div>
+                          <ul className="mt-1 space-y-0.5">
+                            {detail.handoff.summary.demands.map((d) => <li key={d} className="text-[11.5px] text-txt/85">· {d}</li>)}
+                          </ul>
+                        </div>
+                        <div>
+                          <div className="text-[9.5px] uppercase tracking-wider text-dim">История</div>
+                          <ul className="mt-1 space-y-0.5">
+                            {detail.handoff.summary.historyDigest.length
+                              ? detail.handoff.summary.historyDigest.map((h) => <li key={h} className="mono text-[10.5px] text-dim">{h}</li>)
+                              : <li className="text-[10.5px] text-dim">история пуста</li>}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {detail.messages.map((m) => <Bubble key={m.id} m={m} compact />)}
 
                 {detail.decisions.length > 0 && (
-                  <div className="rounded-xl border border-edge bg-white/[0.02] p-3">
-                    <div className="mb-2 text-[9.5px] uppercase tracking-[0.18em] text-dim">Решения ИИ · переопределение (Ст. 5)</div>
-                    <div className="space-y-2">
-                      {detail.decisions.slice(-3).map((d) => (
-                        <DecisionRow key={d.id} d={d} onOverride={(reason) => void act(() => api.overrideDecision(d.id, reason))} busy={busy} />
-                      ))}
-                    </div>
+                  <div className="rounded-xl border border-edge bg-white/[0.02]">
+                    <button
+                      onClick={() => setShowDecisions((v) => !v)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left"
+                    >
+                      <span className="text-[9.5px] uppercase tracking-[0.16em] text-dim">
+                        Решения ИИ · переопределение (Ст. 5)
+                      </span>
+                      <span className="mono text-[9.5px] text-dim">{detail.decisions.length}</span>
+                      <ChevronDown size={13} className={cx("ml-auto text-dim transition", showDecisions && "rotate-180")} />
+                    </button>
+                    {showDecisions && (
+                      <div className="space-y-2 px-3 pb-3">
+                        {detail.decisions.slice(-4).map((d) => (
+                          <DecisionRow key={d.id} d={d} onOverride={(reason) => void act(() => api.overrideDecision(d.id, reason))} busy={busy} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {detail.conversation.status !== "RESOLVED" && (
+              {detail.conversation.status !== "RESOLVED" ? (
                 <form
-                  className="flex items-end gap-2 border-t border-edge p-3"
-                  onSubmit={(e) => { e.preventDefault(); if (reply.trim()) void act(() => api.managerReply(detail.conversation.id, reply).then(() => setReply(""))); }}
+                  className="border-t border-edge p-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (reply.trim()) void act(() => api.managerReply(detail.conversation.id, reply).then(() => setReply("")));
+                  }}
                 >
-                  <textarea
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    rows={2}
-                    placeholder="Ответ менеджера — клиент получит его в свой чат (hold-loop остановится автоматически)…"
-                    className={inputCls}
-                  />
-                  <Btn disabled={busy || !reply.trim()} className="shrink-0">Отправить</Btn>
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      rows={2}
+                      placeholder="Ваш ответ клиенту…"
+                      className={inputCls}
+                    />
+                    <Btn disabled={busy || !reply.trim()} className="shrink-0">Отправить</Btn>
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-dim">
+                    {detail.conversation.status === "HOLD"
+                      ? "Ответ сразу заберёт диалог у ИИ: клиент получит ваше сообщение, напоминания прекратятся."
+                      : "Ответ уйдёт клиенту в его канал (Telegram). ИИ в этом диалоге замолчит."}
+                  </p>
                 </form>
+              ) : (
+                <div className="border-t border-edge px-3.5 py-3 text-[11.5px] text-dim">
+                  Диалог закрыт. Уведомления и напоминания по нему остановлены.
+                </div>
               )}
             </>
           )}
         </Glass>
       </div>
+
+      {detail && (
+        <div className="mt-3 flex items-center gap-2 text-[10px] text-dim/70">
+          <Clock3 size={11} />
+          обновление каждые 3 с · диалог {detail.conversation.id} · сообщений {detail.messages.length}
+        </div>
+      )}
     </div>
   );
 }

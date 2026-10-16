@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
   // standalone-сборка для лёгкого Docker-образа (self-hosting)
   output: "standalone",
   allowedDevOrigins: devOrigins,
+  // Клиентского чата на сайте больше нет: клиент общается в Telegram, а переписку ведёт
+  // менеджер в дашборде. Старые ссылки и закладки на /chat ведём туда же.
+  async redirects() {
+    return [
+      { source: "/chat", destination: "/dashboard", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -1,6 +1,6 @@
 // Тонкий клиент поверх REST API (аналог ui/api_client.py — бизнес-логики в UI нет).
 import type {
-  BotResponse, ClientRecord, Conversation, ConvStatus, Deal, DecisionRec, EventRec,
+  ClientRecord, Conversation, ConvStatus, Deal, DecisionRec, EventRec,
   HandoffRec, Message, MetricsReport, NotificationRec, Policy, PolicyVersionMeta, Role,
   SecurityIncident, SiteUser,
 } from "@/lib/types";
@@ -152,10 +152,6 @@ export const api = {
   conversations: (status?: string) =>
     siteFetch(`${api.base}/api/conversations${status ? `?status=${status}` : ""}`).then((r) => j<{ conversations: ConvListItem[] }>(r)),
   conversation: (id: string) => siteFetch(`${api.base}/api/conversations/${id}`).then((r) => j<ConvDetail>(r)),
-  convMessages: (id: string, after?: string) =>
-    siteFetch(`${api.base}/api/conversations/${id}/messages${after ? `?after=${encodeURIComponent(after)}` : ""}`).then((r) => j<{ messages: Message[] }>(r)),
-  sendMessage: (clientId: string, text: string) =>
-    siteFetch(`${api.base}/api/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: clientId, channel: "web", text }) }).then((r) => j<BotResponse>(r)),
   takeover: (id: string) => siteFetch(`${api.base}/api/conversations/${id}/takeover`, { method: "POST" }).then((r) => j<{ ok: boolean }>(r)),
   managerReply: (id: string, text: string) =>
     siteFetch(`${api.base}/api/conversations/${id}/manager-reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }).then((r) => j<{ ok: boolean }>(r)),

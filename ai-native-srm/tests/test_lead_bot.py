@@ -282,3 +282,164 @@ def test_lead_api_posts_json_with_bot_token(monkeypatch):
     assert captured["headers"]["x-bot-token"] == "secret"
     assert captured["body"]["source"] == "telegram_lead_bot"
     assert captured["body"]["telegram_id"] == "5"
+
+
+# --- Диагностика Telegram: чужой экземпляр и webhook -------------------------------------------
+
+def test_telegram_call_turns_errors_into_payload(monkeypatch):
+    """Диагностика не должна падать сама: ошибку Telegram показываем текстом."""
+
+    def fail(request, timeout=None):
+        raise tlb.urllib.error.HTTPError(request.full_url, 401, "Unauthorized", {}, None)
+
+    monkeypatch.setattr(tlb.urllib.request, "urlopen", fail)
+    result = tlb.telegram_call("bad-token", "getMe")
+    assert result["ok"] is False and "401" in result["description"]
+
+
+def test_drop_webhook_reports_success(monkeypatch, capsys):
+    calls = []
+
+    def fake_call(token, method, params=None):
+        calls.append((method, params))
+        return {"ok": True, "result": True}
+
+    monkeypatch.setattr(tlb, "telegram_call", fake_call)
+    code = tlb.drop_webhook(tlb.LeadBotConfig(token="t", api_url="u", api_token="s"))
+
+    assert code == 0
+    assert calls == [("deleteWebhook", {"drop_pending_updates": "true"})]
+    assert "Webhook снят" in capsys.readouterr().out
+
+
+def test_drop_webhook_explains_bad_token(monkeypatch, capsys):
+    monkeypatch.setattr(tlb, "telegram_call", lambda *a, **k: {"ok": False, "description": "Unauthorized"})
+    code = tlb.drop_webhook(tlb.LeadBotConfig(token="t", api_url="u", api_token="s"))
+
+    assert code == 1
+    assert "TG_LEAD_BOT_TOKEN" in capsys.readouterr().out
+
+
+def test_check_shows_bot_and_warns_about_webhook(monkeypatch, capsys):
+    """--check должен предупредить про webhook: с ним long polling не заработает."""
+    monkeypatch.setenv("TG_LEAD_BOT_TOKEN", "123:abc")
+    monkeypatch.setenv("BOT_API_TOKEN", "secret")
+    monkeypatch.setenv("API_URL", "http://127.0.0.1:9")
+
+    def fake_call(token, method, params=None):
+        if method == "getMe":
+            return {"ok": True, "result": {"username": "los_zayavka_bot"}}
+        return {"ok": True, "result": {"url": "https://example.com/hook"}}
+
+    monkeypatch.setattr(tlb, "telegram_call", fake_call)
+    code = asyncio.run(tlb.check())
+    out = capsys.readouterr().out
+
+    assert code == 1  # API заведомо недоступен — это отдельная проверка
+    assert "@los_zayavka_bot" in out
+    assert "Webhook:            УСТАНОВЛЕН" in out and "--drop-webhook" in out
+
+
+def test_check_says_webhook_is_free(monkeypatch, capsys):
+    monkeypatch.setenv("TG_LEAD_BOT_TOKEN", "123:abc")
+    monkeypatch.setenv("BOT_API_TOKEN", "secret")
+    monkeypatch.setenv("API_URL", "http://127.0.0.1:9")
+
+    def fake_call(token, method, params=None):
+        if method == "getMe":
+            return {"ok": True, "result": {"username": "los_zayavka_bot"}}
+        return {"ok": True, "result": {}}
+
+    monkeypatch.setattr(tlb, "telegram_call", fake_call)
+    asyncio.run(tlb.check())
+    assert "не установлен" in capsys.readouterr().out
+
+
+def test_check_rejects_revoked_token(monkeypatch, capsys):
+    monkeypatch.setenv("TG_LEAD_BOT_TOKEN", "123:abc")
+    monkeypatch.setenv("BOT_API_TOKEN", "secret")
+    monkeypatch.setattr(tlb, "telegram_call", lambda *a, **k: {"ok": False, "description": "Unauthorized"})
+
+    assert asyncio.run(tlb.check()) == 1
+    assert "токен не принят" in capsys.readouterr().out
+
+
+def test_probe_polling_free_reports_conflict():
+    """Чужой экземпляр/вебхук: getUpdates падает конфликтом — бот это увидит и объяснит."""
+    pytest.importorskip("aiogram")
+    from aiogram.exceptions import TelegramConflictError
+
+    class FakeBot:
+        async def get_updates(self, **kwargs):
+            raise TelegramConflictError(method=None, message="Conflict: terminated by other getUpdates request")
+
+    assert "Conflict" in (asyncio.run(tlb.probe_polling_free(FakeBot())) or "")
+
+
+def test_probe_polling_free_is_silent_when_free():
+    pytest.importorskip("aiogram")
+
+    class FakeBot:
+        async def get_updates(self, **kwargs):
+            return []
+
+    assert asyncio.run(tlb.probe_polling_free(FakeBot())) is None
+
+
+def test_conflict_hint_has_ready_commands():
+    """Подсказка должна содержать готовые команды, а не «запущено два экземпляра»."""
+    assert "Stop-Process" in tlb.CONFLICT_HINT
+    assert "--drop-webhook" in tlb.CONFLICT_HINT
+    assert "telegram_lead_bot" in tlb.CONFLICT_HINT
+
+
+# --- Диагностика канала: разбор ответа getUpdates ---------------------------------------------
+
+def test_conflict_reason_recognises_other_instance():
+    from scripts.check_telegram import conflict_reason
+
+    probe = {"ok": False, "error_code": 409, "description": "Conflict: terminated by other getUpdates request"}
+    assert "конфликт" in conflict_reason(probe)
+
+
+def test_conflict_reason_recognises_webhook_and_bad_token():
+    from scripts.check_telegram import conflict_reason
+
+    assert "webhook" in conflict_reason({"ok": False, "error_code": 409,
+                                        "description": "Conflict: can't use getUpdates method while webhook is active"})
+    assert "токен не принят" in conflict_reason({"ok": False, "error_code": 401, "description": "Unauthorized"})
+
+
+def test_conflict_reason_is_silent_when_free():
+    from scripts.check_telegram import conflict_reason
+
+    assert conflict_reason({"ok": True, "result": []}) is None
+
+
+def test_check_telegram_reads_env_file(tmp_path, monkeypatch):
+    """Диагностика должна брать токены из .env — иначе запускать её пришлось бы с переменными."""
+    from scripts import check_telegram
+
+    monkeypatch.delenv("TG_LEAD_BOT_TOKEN", raising=False)
+    monkeypatch.setattr(check_telegram, "BASE_DIR", tmp_path)
+    (tmp_path / ".env").write_text("# комментарий\nTG_LEAD_BOT_TOKEN=123:abc\nBOT_API_TOKEN='secret'\n", encoding="utf-8")
+
+    assert check_telegram.env_value("TG_LEAD_BOT_TOKEN") == "123:abc"
+    assert check_telegram.env_value("BOT_API_TOKEN") == "secret"   # кавычки снимаются
+    assert check_telegram.env_value("НЕТ_ТАКОГО") == ""
+
+
+def test_same_token_for_two_bots_is_reported(monkeypatch, capsys):
+    """Один токен на двух ботов — типовая причина конфликта; диагностика это ловит."""
+    import sys
+
+    from scripts import check_telegram
+
+    env = {"TG_LEAD_BOT_TOKEN": "123:abc", "TG_BOT_TOKEN": "123:abc", "BOT_API_TOKEN": "secret", "API_URL": "http://127.0.0.1:9"}
+    monkeypatch.setattr(check_telegram, "env_value", lambda name: env.get(name, ""))
+    monkeypatch.setattr(check_telegram, "telegram", lambda *a, **k: {"ok": False, "description": "Unauthorized"})
+    monkeypatch.setattr(check_telegram, "api_call", lambda *a, **k: (0, {}))
+    monkeypatch.setattr(sys, "argv", ["check_telegram.py"])
+
+    assert check_telegram.main() == 1
+    assert "совпадают" in capsys.readouterr().out
