@@ -391,3 +391,55 @@ def test_conflict_hint_has_ready_commands():
     assert "Stop-Process" in tlb.CONFLICT_HINT
     assert "--drop-webhook" in tlb.CONFLICT_HINT
     assert "telegram_lead_bot" in tlb.CONFLICT_HINT
+
+
+# --- Диагностика канала: разбор ответа getUpdates ---------------------------------------------
+
+def test_conflict_reason_recognises_other_instance():
+    from scripts.check_telegram import conflict_reason
+
+    probe = {"ok": False, "error_code": 409, "description": "Conflict: terminated by other getUpdates request"}
+    assert "конфликт" in conflict_reason(probe)
+
+
+def test_conflict_reason_recognises_webhook_and_bad_token():
+    from scripts.check_telegram import conflict_reason
+
+    assert "webhook" in conflict_reason({"ok": False, "error_code": 409,
+                                        "description": "Conflict: can't use getUpdates method while webhook is active"})
+    assert "токен не принят" in conflict_reason({"ok": False, "error_code": 401, "description": "Unauthorized"})
+
+
+def test_conflict_reason_is_silent_when_free():
+    from scripts.check_telegram import conflict_reason
+
+    assert conflict_reason({"ok": True, "result": []}) is None
+
+
+def test_check_telegram_reads_env_file(tmp_path, monkeypatch):
+    """Диагностика должна брать токены из .env — иначе запускать её пришлось бы с переменными."""
+    from scripts import check_telegram
+
+    monkeypatch.delenv("TG_LEAD_BOT_TOKEN", raising=False)
+    monkeypatch.setattr(check_telegram, "BASE_DIR", tmp_path)
+    (tmp_path / ".env").write_text("# комментарий\nTG_LEAD_BOT_TOKEN=123:abc\nBOT_API_TOKEN='secret'\n", encoding="utf-8")
+
+    assert check_telegram.env_value("TG_LEAD_BOT_TOKEN") == "123:abc"
+    assert check_telegram.env_value("BOT_API_TOKEN") == "secret"   # кавычки снимаются
+    assert check_telegram.env_value("НЕТ_ТАКОГО") == ""
+
+
+def test_same_token_for_two_bots_is_reported(monkeypatch, capsys):
+    """Один токен на двух ботов — типовая причина конфликта; диагностика это ловит."""
+    import sys
+
+    from scripts import check_telegram
+
+    env = {"TG_LEAD_BOT_TOKEN": "123:abc", "TG_BOT_TOKEN": "123:abc", "BOT_API_TOKEN": "secret", "API_URL": "http://127.0.0.1:9"}
+    monkeypatch.setattr(check_telegram, "env_value", lambda name: env.get(name, ""))
+    monkeypatch.setattr(check_telegram, "telegram", lambda *a, **k: {"ok": False, "description": "Unauthorized"})
+    monkeypatch.setattr(check_telegram, "api_call", lambda *a, **k: (0, {}))
+    monkeypatch.setattr(sys, "argv", ["check_telegram.py"])
+
+    assert check_telegram.main() == 1
+    assert "совпадают" in capsys.readouterr().out
