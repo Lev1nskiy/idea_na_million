@@ -72,7 +72,12 @@ class FakeService:
 
     def catalog(self):
         self._guard()
-        return [{"sku": "PX-M4200", "name": "МФУ Printex M4200", "price": 38900, "stock": 12, "lead_time_days": 1, "warranty_months": 12}]
+        return [
+            {"sku": "PX-M4200", "name": "МФУ Printex M4200", "price": 38900, "stock": 12, "lead_time_days": 1,
+             "warranty_months": 12, "category": "mfu", "category_title": "МФУ"},
+            {"sku": "NB-14B", "name": "Ноутбук НоутФокс 14 Base", "price": 74900, "stock": 18, "lead_time_days": 1,
+             "warranty_months": 24, "category": "laptop", "category_title": "Ноутбуки"},
+        ]
 
     def faq(self):
         self._guard()
@@ -321,9 +326,36 @@ def test_faq_sections_wrap_around():
     assert "Гарантия" in texts(press(bot, "faq:9"))  # индекс по модулю — всегда валидный раздел
 
 
-def test_catalog_uses_crm_reference_data():
-    text = texts(press(session(), "nav:catalog"))
-    assert "PX-M4200" in text and "38 900" in text
+def test_catalog_shows_sections_then_items_from_crm():
+    """Каталог двухуровневый: сначала разделы техники, цены — внутри раздела."""
+    bot = session()
+    overview = texts(press(bot, "nav:catalog"))
+    assert "Компьютеры и мониторы" in overview and "Ноутбуки" in overview
+    assert "Всего позиций: <b>2</b>" in overview
+
+    text = texts(press(bot, "cat:print:0"))
+    assert "PX-M4200" in text and "38 900" in text and "в наличии: 12" in text
+    assert "NB-14B" not in text, "в разделе печати не должно быть ноутбуков"
+
+    laptops = texts(press(bot, "cat:computers:0"))
+    assert "NB-14B" in laptops and "74 900" in laptops
+
+
+def test_catalog_pages_through_long_section():
+    """В разделе с десятками позиций работает листалка, а не «простыня» на весь экран."""
+    service = FakeService(card=dict(CARD))
+    service.catalog = lambda: [
+        {"sku": f"SW-{index}", "name": f"Коммутатор {index}", "price": 10000 + index, "stock": index,
+         "category": "network", "category_title": "Сетевое оборудование", "warranty_months": 36}
+        for index in range(1, 9)
+    ]
+    bot = session(service)
+    first = texts(press(bot, "cat:network:0"))
+    assert "Коммутатор 1" in first and "Страница 1 из 2" in first and "Коммутатор 7" not in first
+
+    second = texts(press(bot, "cat_page:1"))
+    assert "Коммутатор 7" in second and "Страница 2 из 2" in second
+    assert bot.catalog_group == "network" and bot.catalog_page == 1
 
 
 def test_settings_toggle_notifications_and_tech_details():

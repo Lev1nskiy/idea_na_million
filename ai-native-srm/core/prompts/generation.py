@@ -124,57 +124,70 @@ def render_template(scenario: str, facts: dict[str, Any], kb_snippets: Sequence[
     if scenario == "catalog_answer":
         items = facts.get("items") or []
         if not items:
-            return "Подскажите, пожалуйста, какую модель или тип техники вы ищете — подберу подходящие варианты."
-        return "Нашёл подходящие варианты:\n" + "\n".join(_item_line(i) for i in items[:3])
+            return (
+                "Подскажите, пожалуйста, что именно ищете — модель, тип техники или задачу "
+                "(например, «нужен ноутбук для бухгалтерии»), и я подберу варианты из каталога."
+            )
+        lines = "\n".join(_item_line(i) for i in items[:3])
+        tail = (
+            "Скажите количество и задачу — посчитаю итог со скидкой."
+            if len(items) >= 1
+            else ""
+        )
+        return f"Посмотрел каталог — вот что подходит:\n{lines}\n{tail}".rstrip()
 
     if scenario == "tech_answer":
         if kb_snippets:
-            return "По нашей базе знаний: " + _first_sentences(kb_snippets[0])
+            return "Расскажу, как это работает у нас: " + _first_sentences(kb_snippets[0])
         return templates.will_clarify_and_return()
 
     if scenario == "discount_grant":
         pct = f"{facts['pct']:g}"
         if facts.get("product"):
             return (
-                f"Оформляю для вас скидку {pct}% на {facts['qty']} × {facts['product']}. "
-                f"Итоговая сумма заказа с учётом скидки — {_money(facts['total_with_discount'])}."
+                f"Оформляю скидку {pct}% на {facts['qty']} × {facts['product']}: "
+                f"итоговая сумма заказа {_money(facts['total_with_discount'])}. "
+                "Счёт и договор подготовит менеджер — передать ему заявку?"
             )
-        return f"Оформляю для вас скидку {pct}% на заказ. Итоговую сумму рассчитаю после уточнения позиции."
+        return f"Оформляю скидку {pct}% на заказ. Уточните, пожалуйста, позицию и количество — сразу посчитаю итог."
 
     if scenario == "quote":
         lines = "\n".join(
             f"• {ln['name']} × {ln['qty']} — {_money(ln['line_total'])}" for ln in facts["lines"]
         )
         text = (
-            f"Подготовил коммерческое предложение «{facts['name']}» на {facts['people_count']} человек:\n"
+            f"Собрал коммерческое предложение «{facts['name']}» на {facts['people_count']} человек:\n"
             f"{lines}\nИтого: {_money(facts['total'])}."
         )
         if facts.get("bundle_max_pct"):
-            text += f"\nПри оформлении комплекта возможна скидка до {facts['bundle_max_pct']:g}% — могу оформить её по вашему запросу."
+            text += (
+                f"\nПри оформлении комплекта возможна скидка до {facts['bundle_max_pct']:g}% — "
+                "скажите, и оформлю её. Если захотите что-то заменить или добавить, пересоберу комплект."
+            )
         return text
 
     if scenario == "warranty_found":
         return (
-            f"Сожалею, что возникла неполадка. Заказ {facts['order_id']} от {facts['order_date']} подтверждён, "
-            f"оформляю замену: {facts['product']}. Замена будет выполнена в течение "
-            f"{templates._hours_phrase(int(facts['replace_hours']))}, дополнительных документов не требуется."
+            f"Сожалею, что техника подвела. Заказ {facts['order_id']} от {facts['order_date']} нашёл: "
+            f"оформляю замену {facts['product']} — это займёт {templates._hours_phrase(int(facts['replace_hours']))}, "
+            "документы собирать не нужно, всё есть у нас. Если удобнее в другое время, напишите — согласуем."
         )
 
     if scenario == "warranty_collect":
         return (
-            "Сожалею, что возникла неполадка. Мне не удалось найти ваш заказ в истории — "
-            "пришлите, пожалуйста, номер заказа или серийный номер устройства и дату покупки, "
-            "и я сразу оформлю замену."
+            "Сожалею, что техника подвела, — это неприятно. Ваш заказ не удалось найти в истории: "
+            "пришлите, пожалуйста, номер заказа или серийный номер устройства и дату покупки — "
+            "уточню данные и сразу оформлю замену."
         )
 
     if scenario == "delivery":
         if not facts.get("order_found"):
-            return "Подскажите, пожалуйста, номер заказа — проверю статус доставки."
-        base = f"Заказ {facts['order_id']}: статус — {facts['status_text']}."
+            return "Назовите, пожалуйста, номер заказа — проверю его статус и срок доставки."
+        base = f"Посмотрел заказ {facts['order_id']}: статус — {facts['status_text']}."
         delay = int(facts.get("delay_days", 0))
         if delay <= 0:
-            return base + " Задержек по заказу нет."
-        text = f"{base} Сожалею о задержке на {_days(delay)}."
+            return base + " Задержек нет, всё идёт по плану."
+        text = f"{base} Сожалею, что доставка сдвинулась на {_days(delay)}."
         if facts.get("compensation_pct", 0) > 0:
             text += (
                 f" По политике компании предусмотрена компенсация — {facts['compensation_pct']:g}% "
