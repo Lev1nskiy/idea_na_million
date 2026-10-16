@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Activity, BrainCircuit, Database, LayoutGrid, LogOut, Menu, MessagesSquare, RotateCcw,
+  Activity, BrainCircuit, Database, LayoutGrid, LogOut, Menu, RotateCcw,
   ShieldAlert, SlidersHorizontal, Users, X,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -12,8 +12,7 @@ import type { SiteUser } from "@/lib/types";
 
 const BASE_ITEMS = [
   { href: "/", label: "Обзор", icon: LayoutGrid },
-  { href: "/chat", label: "Чат клиента", icon: MessagesSquare },
-  { href: "/dashboard", label: "Дашборд менеджера", icon: BrainCircuit },
+  { href: "/dashboard", label: "Чат менеджера", icon: BrainCircuit },
   { href: "/metrics", label: "Безопасность · метрики", icon: Activity },
 ];
 

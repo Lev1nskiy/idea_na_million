@@ -45,7 +45,7 @@ export default function HomePage() {
       {/* Рабочая сводка: сразу цифры и переходы, без заголовочного текста */}
       <section className="relative mx-auto max-w-6xl pt-6 md:pt-10">
         <div className="flex flex-wrap gap-3">
-          <Link href="/chat"><Btn className="px-5 py-2.5 text-[13px]">Чат клиента <ArrowRight size={14} /></Btn></Link>
+          <Link href="/dashboard"><Btn className="px-5 py-2.5 text-[13px]">Чат менеджера <ArrowRight size={14} /></Btn></Link>
           <Link href="/dashboard"><Btn tone="ghost" className="px-5 py-2.5 text-[13px]"><Inbox size={14} /> Дашборд менеджера</Btn></Link>
           <Link href="/policy"><Btn tone="ghost" className="px-5 py-2.5 text-[13px]"><SlidersHorizontal size={14} /> Policy Admin</Btn></Link>
         </div>
